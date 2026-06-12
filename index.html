@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0F6E56">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EPI Tracker">
+  <meta name="description" content="Offline under-5 immunisation tracker — Zambia EPI programme">
+  <title>EPI Child Tracker — Zambia</title>
+
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --teal-50: #E1F5EE;
+      --teal-100: #9FE1CB;
+      --teal-400: #1D9E75;
+      --teal-600: #0F6E56;
+      --teal-800: #085041;
+      --teal-900: #04342C;
+      --amber-50: #FAEEDA;
+      --amber-600: #854F0B;
+      --amber-800: #633806;
+      --red-50: #FCEBEB;
+      --red-600: #A32D2D;
+      --red-700: #791F1F;
+      --blue-50: #E6F1FB;
+      --blue-600: #185FA5;
+      --bg: #F5F5F2;
+      --surface: #FFFFFF;
+      --surface-2: #F1EFE8;
+      --border: rgba(0,0,0,0.10);
+      --border-2: rgba(0,0,0,0.18);
+      --text: #1A1A18;
+      --text-2: #5F5E5A;
+      --text-3: #888780;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1A1A18;
+        --surface: #262624;
+        --surface-2: #2C2C2A;
+        --border: rgba(255,255,255,0.10);
+        --border-2: rgba(255,255,255,0.18);
+        --text: #EDEDE8;
+        --text-2: #B4B2A9;
+        --text-3: #888780;
+        --teal-50: #04342C;
+        --teal-100: #085041;
+        --red-50: #501313;
+        --amber-50: #412402;
+        --blue-50: #042C53;
+      }
+    }
+
+    html, body { height: 100%; background: var(--bg); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: var(--text); }
+
+    .app { max-width: 480px; margin: 0 auto; min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* Top bar */
+    .topbar {
+      background: var(--teal-600);
+      color: #E1F5EE;
+      padding: 14px 16px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .topbar-icon { font-size: 22px; }
+    .topbar-text { flex: 1; }
+    .topbar-title { font-size: 16px; font-weight: 600; letter-spacing: 0.01em; }
+    .topbar-sub { font-size: 11px; opacity: 0.75; margin-top: 1px; }
+    .topbar-action { font-size: 22px; cursor: pointer; padding: 4px; opacity: 0.85; }
+
+    /* Screens */
+    .screens { flex: 1; overflow-y: auto; padding: 16px 14px 90px; }
+    .screen { display: none; }
+    .screen.active { display: block; }
+
+    /* Bottom nav */
+    .nav {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: var(--surface);
+      border-top: 0.5px solid var(--border);
+      display: flex;
+      z-index: 50;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+    .nav-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      padding: 10px 4px 8px;
+      border: none;
+      background: none;
+      color: var(--text-3);
+      font-size: 10px;
+      font-family: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .nav-btn i { font-size: 22px; }
+    .nav-btn.active { color: var(--teal-600); }
+
+    /* Stat cards */
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: var(--surface); border-radius: var(--radius-sm); padding: 14px 12px; border: 0.5px solid var(--border); }
+    .stat-label { font-size: 11px; color: var(--text-2); margin-bottom: 4px; }
+    .stat-val { font-size: 26px; font-weight: 700; }
+    .stat-val.teal { color: var(--teal-600); }
+    .stat-val.red { color: var(--red-600); }
+    .stat-val.amber { color: var(--amber-600); }
+    .stat-val.blue { color: var(--blue-600); }
+
+    /* Section label */
+    .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin: 18px 0 8px;
+    }
+
+    /* Child card */
+    .child-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 13px 14px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      transition: background 0.15s;
+    }
+    .child-card:active { background: var(--surface-2); }
+    .child-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .child-name-row { font-size: 15px; font-weight: 600; color: var(--text); }
+    .child-meta { font-size: 12px; color: var(--text-2); margin-bottom: 10px; }
+
+    /* Progress */
+    .progress-wrap { display: flex; align-items: center; gap: 8px; }
+    .progress-bar { flex: 1; height: 5px; background: var(--surface-2); border-radius: 3px; overflow: hidden; border: 0.5px solid var(--border); }
+    .progress-fill { height: 100%; background: var(--teal-400); border-radius: 3px; }
+    .progress-pct { font-size: 11px; color: var(--text-2); white-space: nowrap; min-width: 34px; text-align: right; }
+
+    /* Badges */
+    .badge { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+    .badge-done { background: var(--teal-50); color: var(--teal-800); }
+    .badge-due { background: var(--blue-50); color: var(--blue-600); }
+    .badge-overdue { background: var(--red-50); color: var(--red-700); }
+    .badge-upcoming { background: var(--surface-2); color: var(--text-2); }
+
+    /* Alert banner */
+    .alert-banner {
+      background: var(--amber-50);
+      border: 0.5px solid #EF9F27;
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size: 13px;
+      color: var(--amber-800);
+      margin-bottom: 14px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .alert-banner i { font-size: 16px; color: var(--amber-600); flex-shrink: 0; margin-top: 1px; }
+
+    /* Search */
+    .search-wrap { position: relative; margin-bottom: 12px; }
+    .search-wrap i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--text-3); pointer-events: none; }
+    .search-wrap input { padding-left: 38px !important; }
+
+    /* Inputs */
+    input[type=text], input[type=date], input[type=tel], select, textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 0.5px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: 11px 12px;
+      font-size: 15px;
+      color: var(--text);
+      font-family: inherit;
+      -webkit-appearance: none;
+      appearance: none;
+      outline: none;
+    }
+    input:focus, select:focus { border-color: var(--teal-400); box-shadow: 0 0 0 3px rgba(29,158,117,0.15); }
+    select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23888780' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+    .form-group { margin-bottom: 14px; }
+    .form-label { font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 6px; display: block; }
+    .form-hint { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      background: var(--teal-600);
+      color: var(--teal-50);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-primary:active { background: var(--teal-800); }
+    .btn-secondary {
+      width: 100%;
+      background: var(--surface);
+      color: var(--text);
+      border: 0.5px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 8px;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-danger { color: var(--red-600); border-color: #F09595; }
+    .btn-danger:active { background: var(--red-50); }
+
+    /* Detail header */
+    .detail-header {
+      background: var(--teal-50);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .avatar {
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: var(--teal-100);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; font-weight: 700;
+      color: var(--teal-800);
+      flex-shrink: 0;
+    }
+    .detail-name { font-size: 16px; font-weight: 700; color: var(--teal-800); }
+    .detail-sub { font-size: 12px; color: var(--teal-600); margin-top: 3px; line-height: 1.5; }
+
+    /* Progress summary */
+    .progress-summary {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .progress-summary-bar { flex: 1; }
+    .progress-summary-label { font-size: 12px; color: var(--text-2); margin-bottom: 5px; }
+    .progress-summary-pct { font-size: 22px; font-weight: 700; color: var(--teal-600); }
+
+    /* Vaccine group */
+    .vax-group { margin-bottom: 14px; }
+    .vax-group-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-2);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      letter-spacing: 0.01em;
+    }
+    .vax-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+    }
+    .dose-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 11px 14px;
+      border-bottom: 0.5px solid var(--border);
+    }
+    .dose-row:last-child { border-bottom: none; }
+    .dose-name { font-size: 13px; color: var(--text); font-weight: 500; }
+    .dose-right { display: flex; align-items: center; gap: 7px; flex-shrink: 0; }
+    .record-btn {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--teal-400);
+      background: none;
+      color: var(--teal-600);
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .record-btn:active { background: var(--teal-50); }
+
+    /* Back button */
+    .back-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--teal-600);
+      font-size: 14px;
+      font-family: inherit;
+      padding: 0;
+      margin-bottom: 14px;
+      font-weight: 500;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--text-3);
+    }
+    .empty-state i { font-size: 52px; display: block; margin-bottom: 12px; }
+    .empty-state p { font-size: 14px; line-height: 1.6; }
+    .empty-state .cta { margin-top: 16px; }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 82px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1A1A18;
+      color: #E1F5EE;
+      padding: 10px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+      max-width: 90vw;
+    }
+    .toast.show { opacity: 1; }
+
+    /* Install prompt */
+    .install-banner {
+      background: var(--teal-50);
+      border: 0.5px solid var(--teal-100);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .install-banner i { font-size: 20px; color: var(--teal-600); }
+    .install-banner-text { flex: 1; font-size: 13px; color: var(--teal-800); line-height: 1.4; }
+    .install-banner-btn {
+      background: var(--teal-600);
+      color: var(--teal-50);
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 7px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .install-banner-close { font-size: 18px; color: var(--teal-600); cursor: pointer; background: none; border: none; padding: 0; }
+
+    /* Offline indicator */
+    .offline-badge {
+      background: #E24B4A;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 20px;
+      display: none;
+    }
+    .offline-badge.show { display: inline-block; }
+
+    /* Divider */
+    .divider { height: 0.5px; background: var(--border); margin: 20px 0; }
+
+    /* Export section */
+    .export-card {
+      background: var(--surface);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    .export-title { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .export-desc { font-size: 12px; color: var(--text-2); margin-bottom: 12px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Top bar -->
+  <div class="topbar">
+    <i class="ti ti-vaccine topbar-icon" aria-hidden="true"></i>
+    <div class="topbar-text">
+      <div class="topbar-title">EPI Child Tracker</div>
+      <div class="topbar-sub">Zambia Under-5 Immunisation</div>
+    </div>
+    <span class="offline-badge" id="offline-badge">Offline</span>
+  </div>
+
+  <!-- Screens -->
+  <div class="screens">
+
+    <!-- Dashboard -->
+    <div id="screen-dashboard" class="screen active">
+      <div id="install-banner-wrap"></div>
+      <div class="stat-grid" id="stats-grid"></div>
+      <div id="due-alerts"></div>
+      <div class="section-label">Action needed</div>
+      <div id="dashboard-list"></div>
+    </div>
+
+    <!-- Children list -->
+    <div id="screen-children" class="screen">
+      <div class="search-wrap">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <input type="text" id="search-input" placeholder="Search by name or village…" oninput="filterChildren()" autocomplete="off">
+      </div>
+      <div id="children-list"></div>
+    </div>
+
+    <!-- Register -->
+    <div id="screen-register" class="screen">
+      <div class="section-label">Register new child</div>
+      <div class="form-group">
+        <label class="form-label">Child's full name *</label>
+        <input type="text" id="reg-name" placeholder="e.g. Mwape Banda" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date of birth *</label>
+        <input type="date" id="reg-dob">
+        <div class="form-hint">Used to auto-calculate all vaccine due dates</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Sex</label>
+        <select id="reg-sex">
+          <option value="">Select…</option>
+          <option value="Female">Female</option>
+          <option value="Male">Male</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Caregiver name</label>
+        <input type="text" id="reg-caregiver" placeholder="e.g. Grace Banda" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Caregiver phone</label>
+        <input type="tel" id="reg-phone" placeholder="e.g. 0977123456" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Village / community</label>
+        <input type="text" id="reg-village" placeholder="e.g. Nkeyema" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Health facility</label>
+        <input type="text" id="reg-facility" placeholder="e.g. Kaoma District Hospital" autocomplete="off">
+      </div>
+      <button class="btn-primary" onclick="registerChild()">
+        <i class="ti ti-user-plus" aria-hidden="true"></i> Register child
+      </button>
+    </div>
+
+    <!-- Child detail -->
+    <div id="screen-detail" class="screen">
+      <button class="back-btn" id="back-from-detail">
+        <i class="ti ti-arrow-left" aria-hidden="true"></i> All children
+      </button>
+      <div id="detail-content"></div>
+    </div>
+
+    <!-- Settings / Export -->
+    <div id="screen-settings" class="screen">
+      <div class="section-label">Data export</div>
+      <div class="export-card">
+        <div class="export-title">Export all records (CSV)</div>
+        <div class="export-desc">Downloads a CSV file of all registered children and their immunisation status. Use this to import into Excel, DHIS2, or share with the district office.</div>
+        <button class="btn-secondary" onclick="exportCSV()">
+          <i class="ti ti-download" aria-hidden="true"></i> Download CSV
+        </button>
+      </div>
+      <div class="export-card">
+        <div class="export-title">Defaulter list (CSV)</div>
+        <div class="export-desc">Downloads only children with at least one overdue antigen — ready for outreach planning.</div>
+        <button class="btn-secondary" onclick="exportDefaulters()">
+          <i class="ti ti-alert-triangle" aria-hidden="true"></i> Download defaulter list
+        </button>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">About this app</div>
+      <div class="export-card">
+        <div class="export-title">EPI Child Tracker v1.0</div>
+        <div class="export-desc">
+          Zambia EPI schedule (BCG, OPV 0–3, Penta 1–3, PCV 1–3, RV 1–2, IPV, MR 1–2, Vitamin A 1–2).<br><br>
+          Works fully offline. All data is stored on this device. No internet connection required after first load.
+        </div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Danger zone</div>
+      <button class="btn-secondary btn-danger" onclick="clearAllData()">
+        <i class="ti ti-trash" aria-hidden="true"></i> Clear all data
+      </button>
+    </div>
+
+  </div><!-- /screens -->
+
+  <!-- Bottom nav -->
+  <nav class="nav" role="navigation" aria-label="Main navigation">
+    <button class="nav-btn active" id="nav-dashboard" onclick="showScreen('dashboard')">
+      <i class="ti ti-layout-dashboard" aria-hidden="true"></i>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-btn" id="nav-children" onclick="showScreen('children')">
+      <i class="ti ti-users" aria-hidden="true"></i>
+      <span>Children</span>
+    </button>
+    <button class="nav-btn" id="nav-register" onclick="showScreen('register')">
+      <i class="ti ti-user-plus" aria-hidden="true"></i>
+      <span>Register</span>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')">
+      <i class="ti ti-settings" aria-hidden="true"></i>
+      <span>Export</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+  // ─── EPI Schedule ─────────────────────────────────────────────────────────
+  const SCHEDULE = [
+    {id:'bcg',    name:'BCG',                     group:'At birth',  daysOffset:0},
+    {id:'opv0',   name:'OPV 0',                   group:'At birth',  daysOffset:0},
+    {id:'penta1', name:'Penta 1 (DPT-HepB-Hib)',  group:'6 weeks',   daysOffset:42},
+    {id:'opv1',   name:'OPV 1',                   group:'6 weeks',   daysOffset:42},
+    {id:'pcv1',   name:'PCV 1',                   group:'6 weeks',   daysOffset:42},
+    {id:'rv1',    name:'Rotavirus 1',              group:'6 weeks',   daysOffset:42},
+    {id:'penta2', name:'Penta 2',                  group:'10 weeks',  daysOffset:70},
+    {id:'opv2',   name:'OPV 2',                   group:'10 weeks',  daysOffset:70},
+    {id:'pcv2',   name:'PCV 2',                   group:'10 weeks',  daysOffset:70},
+    {id:'penta3', name:'Penta 3',                  group:'14 weeks',  daysOffset:98},
+    {id:'opv3',   name:'OPV 3',                   group:'14 weeks',  daysOffset:98},
+    {id:'pcv3',   name:'PCV 3',                   group:'14 weeks',  daysOffset:98},
+    {id:'rv2',    name:'Rotavirus 2',              group:'14 weeks',  daysOffset:98},
+    {id:'ipv',    name:'IPV',                      group:'14 weeks',  daysOffset:98},
+    {id:'mr1',    name:'MR 1 (Measles-Rubella)',   group:'9 months',  daysOffset:274},
+    {id:'vita1',  name:'Vitamin A (1st dose)',      group:'9 months',  daysOffset:274},
+    {id:'mr2',    name:'MR 2 (Measles-Rubella)',   group:'15 months', daysOffset:457},
+    {id:'vita2',  name:'Vitamin A (2nd dose)',      group:'15 months', daysOffset:457},
+  ];
+
+  // ─── State ────────────────────────────────────────────────────────────────
+  let children = [];
+  let currentChildId = null;
+  let deferredInstallPrompt = null;
+
+  // ─── Storage ──────────────────────────────────────────────────────────────
+  function saveChildren() {
+    try { localStorage.setItem('epi-children', JSON.stringify(children)); } catch(e) {}
+  }
+  function loadChildren() {
+    try {
+      const d = localStorage.getItem('epi-children');
+      children = d ? JSON.parse(d) : [];
+    } catch(e) { children = []; }
+  }
+
+  // ─── Date utilities ───────────────────────────────────────────────────────
+  function today() { return new Date().toISOString().split('T')[0]; }
+
+  function addDays(dob, days) {
+    const d = new Date(dob + 'T00:00:00');
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  }
+
+  function daysBetween(a, b) {
+    return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000);
+  }
+
+  function niceDate(d) {
+    if (!d) return '';
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+  }
+
+  function ageString(dob) {
+    const diff = daysBetween(dob, today());
+    if (diff < 0) return 'future date';
+    if (diff < 7) return diff + (diff === 1 ? ' day' : ' days');
+    if (diff < 30) return Math.floor(diff / 7) + ' wk';
+    if (diff < 365) return Math.floor(diff / 30) + ' mo';
+    const yrs = diff / 365;
+    return yrs.toFixed(1) + ' yrs';
+  }
+
+  function initials(name) {
+    return name.split(' ').map(n => n[0] || '').join('').slice(0,2).toUpperCase();
+  }
+
+  // ─── Dose logic ───────────────────────────────────────────────────────────
+  function getDoseStatus(child, dose) {
+    const given = child.doses && child.doses[dose.id];
+    if (given) return { status: 'done', given };
+    const dueDate = addDays(child.dob, dose.daysOffset);
+    const t = today();
+    if (dueDate <= t) return { status: 'overdue', dueDate };
+    if (daysBetween(t, dueDate) <= 7) return { status: 'due', dueDate };
+    return { status: 'upcoming', dueDate };
+  }
+
+  function getChildSummary(child) {
+    let done = 0, overdue = 0, due = 0;
+    SCHEDULE.forEach(d => {
+      const s = getDoseStatus(child, d);
+      if (s.status === 'done') done++;
+      else if (s.status === 'overdue') overdue++;
+      else if (s.status === 'due') due++;
+    });
+    return { total: SCHEDULE.length, done, overdue, due };
+  }
+
+  // ─── Navigation ───────────────────────────────────────────────────────────
+  function showScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    const nb = document.getElementById('nav-' + name);
+    if (nb) nb.classList.add('active');
+    if (name === 'dashboard') renderDashboard();
+    if (name === 'children') renderChildren();
+  }
+
+  // ─── Child card HTML ──────────────────────────────────────────────────────
+  function childCardHTML(c) {
+    const s = getChildSummary(c);
+    const pct = Math.round((s.done / s.total) * 100);
+    let badge = '';
+    if (s.overdue > 0)         badge = `<span class="badge badge-overdue">${s.overdue} overdue</span>`;
+    else if (s.due > 0)        badge = `<span class="badge badge-due">${s.due} due</span>`;
+    else if (s.done === s.total) badge = `<span class="badge badge-done">Complete</span>`;
+    return `<div class="child-card" onclick="openChild('${c.id}')">
+      <div class="child-card-top">
+        <div class="child-name-row">${escHtml(c.name)}</div>${badge}
+      </div>
+      <div class="child-meta">${ageString(c.dob)} · DOB ${niceDate(c.dob)} · ${escHtml(c.village || '—')}</div>
+      <div class="progress-wrap">
+        <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-pct">${s.done}/${s.total}</div>
+      </div>
+    </div>`;
+  }
+
+  // ─── Dashboard ────────────────────────────────────────────────────────────
+  function renderDashboard() {
+    let total = children.length, fully = 0, overdue = 0, due = 0;
+    children.forEach(c => {
+      const s = getChildSummary(c);
+      if (s.done === s.total) fully++;
+      if (s.overdue > 0) overdue++;
+      if (s.due > 0) due++;
+    });
+
+    document.getElementById('stats-grid').innerHTML = `
+      <div class="stat-card"><div class="stat-label">Total children</div><div class="stat-val teal">${total}</div></div>
+      <div class="stat-card"><div class="stat-label">Fully immunised</div><div class="stat-val blue">${fully}</div></div>
+      <div class="stat-card"><div class="stat-label">Defaulters</div><div class="stat-val red">${overdue}</div></div>
+      <div class="stat-card"><div class="stat-label">Due this week</div><div class="stat-val amber">${due}</div></div>
+    `;
+
+    const alertDiv = document.getElementById('due-alerts');
+    if (overdue > 0) {
+      alertDiv.innerHTML = `<div class="alert-banner"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span>${overdue} child${overdue > 1 ? 'ren have' : ' has'} overdue vaccines. Follow up or plan outreach.</span></div>`;
+    } else {
+      alertDiv.innerHTML = '';
+    }
+
+    const urgent = children.filter(c => { const s = getChildSummary(c); return s.overdue > 0 || s.due > 0; });
+    const list = document.getElementById('dashboard-list');
+    if (total === 0) {
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-baby-carriage" aria-hidden="true"></i><p>No children registered yet.</p><div class="cta"><button class="btn-primary" onclick="showScreen('register')" style="width:auto;padding:10px 24px"><i class="ti ti-user-plus" aria-hidden="true"></i> Register first child</button></div></div>`;
+    } else if (urgent.length === 0) {
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-circle-check" aria-hidden="true"></i><p>All children are up to date — no action needed.</p></div>`;
+    } else {
+      list.innerHTML = urgent.map(childCardHTML).join('');
+    }
+  }
+
+  // ─── Children list ────────────────────────────────────────────────────────
+  function renderChildren(filter) {
+    const f = (filter || document.getElementById('search-input').value || '').toLowerCase();
+    const filtered = children.filter(c =>
+      !f || c.name.toLowerCase().includes(f) || (c.village || '').toLowerCase().includes(f) || (c.caregiver || '').toLowerCase().includes(f)
+    );
+    const sorted = [...filtered].sort((a,b) => {
+      const sa = getChildSummary(a), sb = getChildSummary(b);
+      if (sb.overdue !== sa.overdue) return sb.overdue - sa.overdue;
+      return a.name.localeCompare(b.name);
+    });
+    const list = document.getElementById('children-list');
+    if (children.length === 0) {
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-users" aria-hidden="true"></i><p>No children registered yet. Tap <strong>Register</strong> to add a child.</p></div>`;
+    } else if (sorted.length === 0) {
+      list.innerHTML = `<div class="empty-state"><i class="ti ti-search" aria-hidden="true"></i><p>No children match your search.</p></div>`;
+    } else {
+      list.innerHTML = sorted.map(childCardHTML).join('');
+    }
+  }
+
+  function filterChildren() { renderChildren(); }
+
+  // ─── Child detail ─────────────────────────────────────────────────────────
+  function openChild(id) {
+    currentChildId = id;
+    const c = children.find(x => x.id === id);
+    if (!c) return;
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('screen-detail').classList.add('active');
+    renderDetail(c);
+  }
+
+  function renderDetail(c) {
+    const s = getChildSummary(c);
+    const pct = Math.round((s.done / s.total) * 100);
+    const groups = [...new Set(SCHEDULE.map(d => d.group))];
+
+    const groupsHTML = groups.map(g => {
+      const doses = SCHEDULE.filter(d => d.group === g);
+      const doseHTML = doses.map(d => {
+        const st = getDoseStatus(c, d);
+        let badge = '', btn = '';
+        if (st.status === 'done') {
+          badge = `<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> ${niceDate(st.given)}</span>`;
+        } else if (st.status === 'overdue') {
+          badge = `<span class="badge badge-overdue">Overdue</span>`;
+          btn  = `<button class="record-btn" onclick="giveDose('${c.id}','${d.id}')">Record</button>`;
+        } else if (st.status === 'due') {
+          badge = `<span class="badge badge-due">Due ${niceDate(st.dueDate)}</span>`;
+          btn  = `<button class="record-btn" onclick="giveDose('${c.id}','${d.id}')">Record</button>`;
+        } else {
+          badge = `<span class="badge badge-upcoming">${niceDate(st.dueDate)}</span>`;
+        }
+        return `<div class="dose-row">
+          <div class="dose-name">${d.name}</div>
+          <div class="dose-right">${btn}${badge}</div>
+        </div>`;
+      }).join('');
+      return `<div class="vax-group">
+        <div class="vax-group-title"><i class="ti ti-calendar-event" aria-hidden="true"></i>${g}</div>
+        <div class="vax-card">${doseHTML}</div>
+      </div>`;
+    }).join('');
+
+    document.getElementById('detail-content').innerHTML = `
+      <div class="detail-header">
+        <div class="avatar">${initials(c.name)}</div>
+        <div>
+          <div class="detail-name">${escHtml(c.name)}</div>
+          <div class="detail-sub">
+            ${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex || '—')}<br>
+            Caregiver: ${escHtml(c.caregiver || '—')}<br>
+            ${c.phone ? 'Phone: ' + escHtml(c.phone) + '<br>' : ''}
+            ${escHtml(c.village || '—')} · ${escHtml(c.facility || '—')}
+          </div>
+        </div>
+      </div>
+      <div class="progress-summary">
+        <div class="progress-summary-bar">
+          <div class="progress-summary-label">${s.done} of ${s.total} doses given${s.overdue > 0 ? ' · ' + s.overdue + ' overdue' : ''}</div>
+          <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="progress-summary-pct">${pct}%</div>
+      </div>
+      ${groupsHTML}
+      <button class="btn-secondary btn-danger" onclick="confirmDeleteChild('${c.id}')">
+        <i class="ti ti-trash" aria-hidden="true"></i> Remove this child
+      </button>
+    `;
+  }
+
+  function giveDose(childId, doseId) {
+    const c = children.find(x => x.id === childId);
+    if (!c) return;
+    if (!c.doses) c.doses = {};
+    c.doses[doseId] = today();
+    saveChildren();
+    showToast('Dose recorded ✓');
+    renderDetail(c);
+    renderDashboard();
+  }
+
+  function confirmDeleteChild(id) {
+    if (!confirm('Remove this child record? This cannot be undone.')) return;
+    children = children.filter(c => c.id !== id);
+    saveChildren();
+    showToast('Record removed');
+    showScreen('children');
+  }
+
+  // ─── Register ─────────────────────────────────────────────────────────────
+  function registerChild() {
+    const name     = document.getElementById('reg-name').value.trim();
+    const dob      = document.getElementById('reg-dob').value;
+    const sex      = document.getElementById('reg-sex').value;
+    const caregiver= document.getElementById('reg-caregiver').value.trim();
+    const phone    = document.getElementById('reg-phone').value.trim();
+    const village  = document.getElementById('reg-village').value.trim();
+    const facility = document.getElementById('reg-facility').value.trim();
+
+    if (!name) { showToast('Please enter the child\'s name'); return; }
+    if (!dob)  { showToast('Please enter the date of birth'); return; }
+
+    const c = {
+      id: 'c' + Date.now(),
+      name, dob, sex, caregiver, phone, village, facility,
+      doses: {},
+      registeredAt: today()
+    };
+    children.push(c);
+    saveChildren();
+
+    ['reg-name','reg-dob','reg-caregiver','reg-phone','reg-village','reg-facility'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('reg-sex').value = '';
+
+    showToast('Child registered ✓');
+    openChild(c.id);
+  }
+
+  // ─── Export ───────────────────────────────────────────────────────────────
+  function exportCSV() {
+    if (children.length === 0) { showToast('No children to export'); return; }
+    const header = ['ID','Name','DOB','Sex','Age','Caregiver','Phone','Village','Facility','Registered'].concat(SCHEDULE.map(d => d.name));
+    const rows = children.map(c => {
+      const base = [c.id, c.name, c.dob, c.sex||'', ageString(c.dob), c.caregiver||'', c.phone||'', c.village||'', c.facility||'', c.registeredAt||''];
+      const doses = SCHEDULE.map(d => {
+        const st = getDoseStatus(c, d);
+        if (st.status === 'done') return st.given;
+        if (st.status === 'overdue') return 'OVERDUE';
+        if (st.status === 'due') return 'DUE_SOON';
+        return 'UPCOMING';
+      });
+      return base.concat(doses);
+    });
+    downloadCSV([header, ...rows], 'epi-children-' + today() + '.csv');
+  }
+
+  function exportDefaulters() {
+    const defaulters = children.filter(c => getChildSummary(c).overdue > 0);
+    if (defaulters.length === 0) { showToast('No defaulters — all children up to date!'); return; }
+    const header = ['ID','Name','DOB','Age','Caregiver','Phone','Village','Facility','Overdue antigens'];
+    const rows = defaulters.map(c => {
+      const overdueDoses = SCHEDULE.filter(d => getDoseStatus(c, d).status === 'overdue').map(d => d.name).join('; ');
+      return [c.id, c.name, c.dob, ageString(c.dob), c.caregiver||'', c.phone||'', c.village||'', c.facility||'', overdueDoses];
+    });
+    downloadCSV([header, ...rows], 'epi-defaulters-' + today() + '.csv');
+  }
+
+  function downloadCSV(rows, filename) {
+    const csv = rows.map(r => r.map(cell => '"' + String(cell).replace(/"/g, '""') + '"').join(',')).join('\n');
+    const blob = new Blob([csv], {type: 'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Download started');
+  }
+
+  function clearAllData() {
+    if (!confirm('This will permanently delete ALL child records. Are you sure?')) return;
+    if (!confirm('Final confirmation: delete everything?')) return;
+    children = [];
+    saveChildren();
+    showToast('All data cleared');
+    showScreen('dashboard');
+  }
+
+  // ─── Utilities ────────────────────────────────────────────────────────────
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ─── Offline detection ────────────────────────────────────────────────────
+  function updateOnlineStatus() {
+    document.getElementById('offline-badge').classList.toggle('show', !navigator.onLine);
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
+  // ─── Install prompt (Android) ─────────────────────────────────────────────
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById('install-banner-wrap').innerHTML = `
+      <div class="install-banner" id="install-banner">
+        <i class="ti ti-device-mobile-down" aria-hidden="true"></i>
+        <div class="install-banner-text">Install this app on your phone for full offline use</div>
+        <button class="install-banner-btn" onclick="triggerInstall()">Install</button>
+        <button class="install-banner-close" onclick="document.getElementById('install-banner').remove()" aria-label="Dismiss"><i class="ti ti-x" aria-hidden="true"></i></button>
+      </div>`;
+  });
+
+  function triggerInstall() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    deferredInstallPrompt.userChoice.then(result => {
+      if (result.outcome === 'accepted') showToast('App installed ✓');
+      deferredInstallPrompt = null;
+      const b = document.getElementById('install-banner');
+      if (b) b.remove();
+    });
+  }
+
+  // ─── Back button ──────────────────────────────────────────────────────────
+  document.getElementById('back-from-detail').addEventListener('click', () => showScreen('children'));
+
+  // ─── Service Worker ───────────────────────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+  loadChildren();
+  renderDashboard();
+</script>
+</body>
+</html>
