@@ -402,12 +402,13 @@
       </div>
       <button onclick="closeModal()" style="background:none;border:none;font-size:22px;color:var(--text-3);cursor:pointer;padding:4px"><i class="ti ti-x" aria-hidden="true"></i></button>
     </div>
+    <div id="modal-validation" style="display:none;margin-bottom:12px"></div>
     <label style="font-size:13px;font-weight:500;color:var(--text-2);display:block;margin-bottom:6px">Date antigen was given *</label>
     <input type="date" id="modal-date" style="margin-bottom:6px">
     <div style="font-size:11px;color:var(--text-3);margin-bottom:16px" id="modal-hint">Enter the actual date this dose was administered (can be a past date)</div>
     <div style="display:flex;gap:10px">
       <button class="btn-secondary" style="margin:0;flex:1" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" style="flex:2" onclick="confirmDose()"><i class="ti ti-check" aria-hidden="true"></i> Save dose date</button>
+      <button class="btn-primary" id="modal-save-btn" style="flex:2" onclick="confirmDose()"><i class="ti ti-check" aria-hidden="true"></i> Save dose date</button>
     </div>
     <button id="modal-clear-btn" style="display:none;width:100%;margin-top:10px;background:none;border:none;color:var(--red-600);font-size:13px;font-family:inherit;cursor:pointer;padding:6px" onclick="clearDose()">
       <i class="ti ti-x" aria-hidden="true"></i> Remove this dose record
@@ -864,8 +865,161 @@ function renderDetail(c) {
 }
 
 // ══════════════════════════════════════════════
-// DOSE DATE MODAL
+// DOSE VALIDATION RULES
 // ══════════════════════════════════════════════
+
+// Minimum age (days from DOB) for each dose — hard block if younger
+const DOSE_MIN_AGE = {
+  bcg:0, opv0:0,
+  penta1:28, opv1:28, pcv1:28, rv1:28,
+  penta2:56, opv2:56, pcv2:56,
+  penta3:84, opv3:84, pcv3:84, rv2:84, ipv1:84,
+  rv3:112,
+  mal1:150,
+  ipv2:155, mal2:178,
+  mal3:213,
+  mr1:270, vita1:270,
+  mr2:450, vita2:450,
+  malbst:540
+};
+
+// Sequence chains — each dose must come AFTER the previous one (hard block)
+const DOSE_SEQUENCES = [
+  ['opv0','opv1','opv2','opv3'],
+  ['penta1','penta2','penta3'],
+  ['pcv1','pcv2','pcv3'],
+  ['rv1','rv2','rv3'],
+  ['ipv1','ipv2'],
+  ['mr1','mr2'],
+  ['vita1','vita2'],
+  ['mal1','mal2','mal3','malbst']
+];
+
+// Minimum interval (days) between consecutive doses — soft warning if not met
+const DOSE_MIN_INTERVAL = {
+  'opv0-opv1':28, 'opv1-opv2':28, 'opv2-opv3':28,
+  'penta1-penta2':28, 'penta2-penta3':28,
+  'pcv1-pcv2':28, 'pcv2-pcv3':28,
+  'rv1-rv2':28, 'rv2-rv3':28,
+  'ipv1-ipv2':56,
+  'mr1-mr2':28,
+  'vita1-vita2':28,
+  'mal1-mal2':28, 'mal2-mal3':28, 'mal3-malbst':365
+};
+
+// Maximum age for rotavirus (hard block — safety concern)
+const RV_MAX_AGE_DAYS = 224; // 32 weeks
+const RV_DOSES = ['rv1','rv2','rv3'];
+
+// BCG late threshold (soft warning)
+const BCG_LATE_DAYS = 28;
+
+/**
+ * Validate a dose date entry.
+ * Returns array of issues: [{type:'block'|'warn', message:string}]
+ */
+function validateDoseDate(c, doseId, dateVal) {
+  const issues = [];
+  const ageAtDose = daysBetween(c.dob, dateVal);
+
+  // ── HARD BLOCKS ──────────────────────────────────────
+  // 1. Date before DOB
+  if (ageAtDose < 0) {
+    issues.push({ type:'block', message:'Date is before the child\'s date of birth ('+niceDate(c.dob)+').' });
+    return issues; // no point checking further
+  }
+
+  // 2. Date in the future
+  if (dateVal > today()) {
+    issues.push({ type:'block', message:'Date is in the future. You can only record doses that have already been given.' });
+    return issues;
+  }
+
+  // 3. Child too young — minimum age not reached
+  const minAge = DOSE_MIN_AGE[doseId];
+  if (minAge !== undefined && ageAtDose < minAge) {
+    const minAgeStr = minAge < 56 ? minAge+' days' : minAge < 365 ? Math.round(minAge/7)+' weeks' : (minAge/365).toFixed(1)+' years';
+    issues.push({ type:'block', message:'Child was only '+ageAtDose+' days old on this date. Minimum age for this dose is '+minAgeStr+'.' });
+  }
+
+  // 4. Rotavirus maximum age (32 weeks / 224 days)
+  if (RV_DOSES.includes(doseId) && ageAtDose > RV_MAX_AGE_DAYS) {
+    issues.push({ type:'block', message:'Rotavirus vaccine must not be given after 32 weeks (224 days). Child was '+ageAtDose+' days old on this date.' });
+  }
+
+  // 5. Sequence — later dose recorded before earlier dose
+  for (const chain of DOSE_SEQUENCES) {
+    const idx = chain.indexOf(doseId);
+    if (idx > 0) {
+      // Check all previous doses in the chain
+      for (let i = 0; i < idx; i++) {
+        const prevId = chain[i];
+        const prevDate = c.doses && c.doses[prevId];
+        if (!prevDate) {
+          const prevDose = SCHEDULE.find(d=>d.id===prevId);
+          issues.push({ type:'block', message:(prevDose?.name||prevId)+' has not been recorded yet. Earlier doses must be given first.' });
+          break;
+        }
+        if (dateVal <= prevDate) {
+          const prevDose = SCHEDULE.find(d=>d.id===prevId);
+          issues.push({ type:'block', message:'Date must be after '+( prevDose?.name||prevId)+' date ('+niceDate(prevDate)+').' });
+          break;
+        }
+      }
+    }
+    // Check dose after current in chain — if already recorded, it can't be before this date
+    if (idx >= 0 && idx < chain.length - 1) {
+      for (let i = idx + 1; i < chain.length; i++) {
+        const nextId = chain[i];
+        const nextDate = c.doses && c.doses[nextId];
+        if (nextDate && dateVal >= nextDate) {
+          const nextDose = SCHEDULE.find(d=>d.id===nextId);
+          issues.push({ type:'block', message:'Date must be before the already-recorded '+(nextDose?.name||nextId)+' date ('+niceDate(nextDate)+').' });
+          break;
+        }
+      }
+    }
+  }
+
+  // ── SOFT WARNINGS ────────────────────────────────────
+  // 6. Minimum interval between consecutive doses
+  for (const chain of DOSE_SEQUENCES) {
+    const idx = chain.indexOf(doseId);
+    if (idx > 0) {
+      const prevId = chain[idx-1];
+      const prevDate = c.doses && c.doses[prevId];
+      const key = prevId+'-'+doseId;
+      const minInterval = DOSE_MIN_INTERVAL[key];
+      if (prevDate && minInterval) {
+        const interval = daysBetween(prevDate, dateVal);
+        if (interval < minInterval) {
+          const prevDose = SCHEDULE.find(d=>d.id===prevId);
+          issues.push({ type:'warn', message:'Only '+interval+' days since '+(prevDose?.name||prevId)+'. Recommended minimum interval is '+minInterval+' days. Verify this is correct before saving.' });
+        }
+      }
+    }
+  }
+
+  // 7. BCG given late (more than 28 days after birth)
+  if (doseId === 'bcg' && ageAtDose > BCG_LATE_DAYS) {
+    issues.push({ type:'warn', message:'BCG is usually given at birth. Child was '+ageAtDose+' days old — please confirm this is a late BCG record and not a data entry error.' });
+  }
+
+  // 8. Malaria booster — should be at least 12 months after Malaria 3
+  if (doseId === 'malbst') {
+    const mal3Date = c.doses && c.doses['mal3'];
+    if (mal3Date) {
+      const gap = daysBetween(mal3Date, dateVal);
+      if (gap < 365) {
+        issues.push({ type:'warn', message:'Only '+gap+' days since Malaria 3 ('+niceDate(mal3Date)+'). Recommended gap before Malaria Booster is 12 months.' });
+      }
+    }
+  }
+
+  return issues;
+}
+
+
 let _modalChildId = null, _modalDoseId = null;
 
 function openDoseModal(childId, doseId, existingDate) {
@@ -875,24 +1029,56 @@ function openDoseModal(childId, doseId, existingDate) {
   _modalChildId = childId; _modalDoseId = doseId;
   document.getElementById('modal-dose-name').textContent = dose.name;
   document.getElementById('modal-child-name').textContent = c.name;
-  // Default date: existing date if editing, else today
   document.getElementById('modal-date').value = existingDate || today();
-  // Max date = today (can't record future vaccines)
   document.getElementById('modal-date').max = today();
-  // Min date = child's DOB
   document.getElementById('modal-date').min = c.dob;
-  // Hint text
   document.getElementById('modal-hint').textContent = existingDate
     ? 'You can correct the date this dose was given.'
     : 'Enter the actual date this dose was administered — can be today or a past date.';
-  // Show remove button only when editing an existing dose
   document.getElementById('modal-clear-btn').style.display = existingDate ? 'block' : 'none';
-  const modal = document.getElementById('dose-modal');
-  modal.style.display = 'flex';
+  // Wire up live validation
+  document.getElementById('modal-date').onchange = runModalValidation;
+  runModalValidation();
+  document.getElementById('dose-modal').style.display = 'flex';
+}
+
+function runModalValidation() {
+  const c = children.find(x=>x.id===_modalChildId);
+  if (!c) return;
+  const dateVal = document.getElementById('modal-date').value;
+  const validationDiv = document.getElementById('modal-validation');
+  const saveBtn = document.getElementById('modal-save-btn');
+  if (!dateVal) {
+    validationDiv.style.display = 'none';
+    if (saveBtn) { saveBtn.disabled=false; saveBtn.style.opacity='1'; }
+    return;
+  }
+  const issues = validateDoseDate(c, _modalDoseId, dateVal);
+  if (!issues.length) {
+    validationDiv.style.display = 'none';
+    if (saveBtn) { saveBtn.disabled=false; saveBtn.style.opacity='1'; }
+    return;
+  }
+  const blocks = issues.filter(i=>i.type==='block');
+  const warns  = issues.filter(i=>i.type==='warn');
+  let html = '';
+  blocks.forEach(i => {
+    html += `<div style="background:var(--red-50);border:0.5px solid #F09595;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;color:var(--red-700);display:flex;align-items:flex-start;gap:7px"><i class="ti ti-circle-x" style="flex-shrink:0;font-size:15px;margin-top:1px" aria-hidden="true"></i><span>${i.message}</span></div>`;
+  });
+  warns.forEach(i => {
+    html += `<div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:8px;padding:8px 10px;margin-bottom:6px;font-size:12px;color:var(--amber-800);display:flex;align-items:flex-start;gap:7px"><i class="ti ti-alert-triangle" style="flex-shrink:0;font-size:15px;margin-top:1px" aria-hidden="true"></i><span>${i.message}</span></div>`;
+  });
+  validationDiv.innerHTML = html;
+  validationDiv.style.display = 'block';
+  if (saveBtn) {
+    saveBtn.disabled = blocks.length > 0;
+    saveBtn.style.opacity = blocks.length > 0 ? '0.45' : '1';
+  }
 }
 
 function closeModal() {
   document.getElementById('dose-modal').style.display = 'none';
+  document.getElementById('modal-validation').style.display = 'none';
   _modalChildId = null; _modalDoseId = null;
 }
 
@@ -902,11 +1088,21 @@ function confirmDose() {
   const c = children.find(x=>x.id===_modalChildId);
   const dose = SCHEDULE.find(d=>d.id===_modalDoseId);
   if (!c||!dose) return;
+  // Final hard-block check (in case JS disabled state was bypassed)
+  const issues = validateDoseDate(c, _modalDoseId, dateVal);
+  const blocks = issues.filter(i=>i.type==='block');
+  if (blocks.length > 0) {
+    showToast('Fix errors before saving');
+    runModalValidation();
+    return;
+  }
   if (!c.doses) c.doses={};
   const isEdit = !!c.doses[_modalDoseId];
+  const warns = issues.filter(i=>i.type==='warn');
   c.doses[_modalDoseId] = dateVal;
   saveChildren();
-  addLog((isEdit?'Dose date edited: ':'Dose recorded: ')+dose.name+' ('+dateVal+') for '+c.name);
+  const warnNote = warns.length ? ' [with warning]' : '';
+  addLog((isEdit?'Dose date edited: ':'Dose recorded: ')+dose.name+' ('+dateVal+') for '+c.name+warnNote);
   showToast(isEdit ? 'Date updated ✓' : 'Dose recorded ✓');
   closeModal();
   renderDetail(c);
