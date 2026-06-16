@@ -268,12 +268,24 @@
         <input type="text" id="reg-name" placeholder="e.g. Mwape Banda" autocomplete="off">
       </div>
       <div class="form-group">
+        <label class="form-label">Under 5 Card Number *</label>
+        <input type="text" id="reg-cardno" placeholder="PPDD-FF-YYYY-NNNN" autocomplete="off" maxlength="17" oninput="formatCardNo(this)" style="font-family:monospace;letter-spacing:0.05em">
+        <div class="form-hint" style="margin-top:6px;line-height:1.7">
+          <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">PP</span> Provincial code &nbsp;·&nbsp;
+          <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">DD</span> District code &nbsp;·&nbsp;
+          <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">FF</span> Facility code<br>
+          <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">YYYY</span> Year &nbsp;·&nbsp;
+          <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">NNNN</span> Visit serial number<br>
+          <span style="color:var(--text-3)">e.g. 0803-12-2024-0001</span>
+        </div>
+      </div>
+      <div class="form-group">
         <label class="form-label">Date of birth *</label>
         <input type="date" id="reg-dob">
         <div class="form-hint">Used to auto-calculate all vaccine due dates</div>
       </div>
       <div class="form-group">
-        <label class="form-label">Sex</label>
+        <label class="form-label">Sex *</label>
         <select id="reg-sex">
           <option value="">Select…</option>
           <option value="Female">Female</option>
@@ -281,23 +293,23 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Caregiver name</label>
+        <label class="form-label">Caregiver name *</label>
         <input type="text" id="reg-caregiver" placeholder="e.g. Grace Banda" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Caregiver phone</label>
+        <label class="form-label">Caregiver phone <span style="color:var(--text-3);font-weight:400">(optional)</span></label>
         <input type="tel" id="reg-phone" placeholder="e.g. 0977123456" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Village</label>
+        <label class="form-label">Village *</label>
         <input type="text" id="reg-village" placeholder="e.g. Nkeyema" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Community / Area</label>
-        <input type="text" id="reg-community" placeholder="e.g. Luampa" autocomplete="off">
+        <label class="form-label">NHC / Zone *</label>
+        <input type="text" id="reg-community" placeholder="e.g. Luampa NHC" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Health facility</label>
+        <label class="form-label">Health facility *</label>
         <input type="text" id="reg-facility" placeholder="e.g. Kaoma District Hospital" autocomplete="off">
       </div>
       <button class="btn-primary" onclick="registerChild()">
@@ -410,24 +422,30 @@
 // EPI SCHEDULE
 // ══════════════════════════════════════════════
 const SCHEDULE = [
-  {id:'bcg',    name:'BCG',                    group:'At birth',  daysOffset:0},
-  {id:'opv0',   name:'OPV 0',                  group:'At birth',  daysOffset:0},
-  {id:'penta1', name:'Penta 1 (DPT-HepB-Hib)', group:'6 weeks',   daysOffset:42},
-  {id:'opv1',   name:'OPV 1',                  group:'6 weeks',   daysOffset:42},
-  {id:'pcv1',   name:'PCV 1',                  group:'6 weeks',   daysOffset:42},
-  {id:'rv1',    name:'Rotavirus 1',             group:'6 weeks',   daysOffset:42},
-  {id:'penta2', name:'Penta 2',                 group:'10 weeks',  daysOffset:70},
-  {id:'opv2',   name:'OPV 2',                  group:'10 weeks',  daysOffset:70},
-  {id:'pcv2',   name:'PCV 2',                  group:'10 weeks',  daysOffset:70},
-  {id:'penta3', name:'Penta 3',                 group:'14 weeks',  daysOffset:98},
-  {id:'opv3',   name:'OPV 3',                  group:'14 weeks',  daysOffset:98},
-  {id:'pcv3',   name:'PCV 3',                  group:'14 weeks',  daysOffset:98},
-  {id:'rv2',    name:'Rotavirus 2',             group:'14 weeks',  daysOffset:98},
-  {id:'ipv',    name:'IPV',                     group:'14 weeks',  daysOffset:98},
-  {id:'mr1',    name:'MR 1 (Measles-Rubella)',  group:'9 months',  daysOffset:274},
-  {id:'vita1',  name:'Vitamin A (1st dose)',     group:'9 months',  daysOffset:274},
-  {id:'mr2',    name:'MR 2 (Measles-Rubella)',  group:'15 months', daysOffset:457},
-  {id:'vita2',  name:'Vitamin A (2nd dose)',     group:'15 months', daysOffset:457},
+  {id:'bcg',      name:'BCG',                    group:'At birth',  daysOffset:0},
+  {id:'opv0',     name:'OPV 0',                  group:'At birth',  daysOffset:0},
+  {id:'penta1',   name:'Penta 1 (DPT-HepB-Hib)', group:'6 weeks',   daysOffset:42},
+  {id:'opv1',     name:'OPV 1',                  group:'6 weeks',   daysOffset:42},
+  {id:'pcv1',     name:'PCV 1',                  group:'6 weeks',   daysOffset:42},
+  {id:'rv1',      name:'Rotavirus 1',             group:'6 weeks',   daysOffset:42},
+  {id:'penta2',   name:'Penta 2',                 group:'10 weeks',  daysOffset:70},
+  {id:'opv2',     name:'OPV 2',                  group:'10 weeks',  daysOffset:70},
+  {id:'pcv2',     name:'PCV 2',                  group:'10 weeks',  daysOffset:70},
+  {id:'penta3',   name:'Penta 3',                 group:'14 weeks',  daysOffset:98},
+  {id:'opv3',     name:'OPV 3',                  group:'14 weeks',  daysOffset:98},
+  {id:'pcv3',     name:'PCV 3',                  group:'14 weeks',  daysOffset:98},
+  {id:'rv2',      name:'Rotavirus 2',             group:'14 weeks',  daysOffset:98},
+  {id:'ipv1',     name:'IPV 1',                   group:'14 weeks',  daysOffset:98},
+  {id:'rv3',      name:'Rotavirus 3',             group:'18 weeks',  daysOffset:126},
+  {id:'mal1',     name:'Malaria 1 (RTS,S)',        group:'5 months',  daysOffset:150},
+  {id:'ipv2',     name:'IPV 2',                   group:'6 months',  daysOffset:183},
+  {id:'mal2',     name:'Malaria 2 (RTS,S)',        group:'6 months',  daysOffset:183},
+  {id:'mal3',     name:'Malaria 3 (RTS,S)',        group:'7 months',  daysOffset:213},
+  {id:'mr1',      name:'MR 1 (Measles-Rubella)',  group:'9 months',  daysOffset:274},
+  {id:'vita1',    name:'Vitamin A (1st dose)',     group:'9 months',  daysOffset:274},
+  {id:'mr2',      name:'MR 2 (Measles-Rubella)',  group:'15 months', daysOffset:457},
+  {id:'vita2',    name:'Vitamin A (2nd dose)',     group:'15 months', daysOffset:457},
+  {id:'malbst',   name:'Malaria Booster (RTS,S)', group:'18 months', daysOffset:548},
 ];
 
 // ══════════════════════════════════════════════
@@ -741,7 +759,7 @@ function childCardHTML(c) {
   else if (s.done===s.total) badge=`<span class="badge badge-done">Complete</span>`;
   return `<div class="child-card" onclick="openChild('${c.id}')">
     <div class="child-card-top"><div class="child-name-row">${escHtml(c.name)}</div>${badge}</div>
-    <div class="child-meta">${ageString(c.dob)} · DOB ${niceDate(c.dob)} · ${escHtml(c.village||'—')}</div>
+    <div class="child-meta">${ageString(c.dob)} · DOB ${niceDate(c.dob)} · Card: ${escHtml(c.cardno||'—')} · ${escHtml(c.village||'—')}</div>
     <div class="progress-wrap">
       <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
       <div class="progress-pct">${s.done}/${s.total}</div>
@@ -779,7 +797,7 @@ function renderDashboard() {
 // ══════════════════════════════════════════════
 function renderChildren() {
   const f = (document.getElementById('search-input').value||'').toLowerCase();
-  const sorted = [...children].filter(c => !f||c.name.toLowerCase().includes(f)||(c.village||'').toLowerCase().includes(f)||(c.community||'').toLowerCase().includes(f)).sort((a,b)=>{ const sa=getChildSummary(a),sb=getChildSummary(b); return sb.overdue-sa.overdue||a.name.localeCompare(b.name); });
+  const sorted = [...children].filter(c => !f||c.name.toLowerCase().includes(f)||(c.village||'').toLowerCase().includes(f)||(c.community||'').toLowerCase().includes(f)||(c.cardno||'').toLowerCase().includes(f)).sort((a,b)=>{ const sa=getChildSummary(a),sb=getChildSummary(b); return sb.overdue-sa.overdue||a.name.localeCompare(b.name); });
   const list = document.getElementById('children-list');
   if (children.length===0) list.innerHTML=`<div class="empty-state"><i class="ti ti-users" aria-hidden="true"></i><p>No children registered yet.</p></div>`;
   else if (sorted.length===0) list.innerHTML=`<div class="empty-state"><i class="ti ti-search" aria-hidden="true"></i><p>No children match your search.</p></div>`;
@@ -830,7 +848,7 @@ function renderDetail(c) {
       <div class="avatar">${initials(c.name)}</div>
       <div>
         <div class="detail-name">${escHtml(c.name)}</div>
-        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village: ${escHtml(c.village||'—')} · Community: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}</div>
+        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}</div>
       </div>
     </div>
     <div class="progress-summary">
@@ -920,10 +938,36 @@ function confirmDeleteChild(id) {
 }
 
 // ══════════════════════════════════════════════
-// REGISTER
+// CARD NUMBER AUTO-FORMATTER
+// Format: PPDD-FF-YYYY-NNNN (17 chars)
 // ══════════════════════════════════════════════
+function formatCardNo(input) {
+  // Strip everything except digits
+  let digits = input.value.replace(/\D/g, '');
+  // Cap at 14 digits (PPDD=4, FF=2, YYYY=4, NNNN=4)
+  if (digits.length > 14) digits = digits.slice(0, 14);
+  // Insert dashes: PPDD-FF-YYYY-NNNN
+  let formatted = '';
+  if (digits.length <= 4) {
+    formatted = digits;
+  } else if (digits.length <= 6) {
+    formatted = digits.slice(0,4) + '-' + digits.slice(4);
+  } else if (digits.length <= 10) {
+    formatted = digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6);
+  } else {
+    formatted = digits.slice(0,4) + '-' + digits.slice(4,6) + '-' + digits.slice(6,10) + '-' + digits.slice(10);
+  }
+  input.value = formatted;
+}
+
+function validateCardNo(val) {
+  return /^\d{4}-\d{2}-\d{4}-\d{4}$/.test(val);
+}
+
+
 function registerChild() {
   const name     = document.getElementById('reg-name').value.trim();
+  const cardno   = document.getElementById('reg-cardno').value.trim();
   const dob      = document.getElementById('reg-dob').value;
   const sex      = document.getElementById('reg-sex').value;
   const caregiver= document.getElementById('reg-caregiver').value.trim();
@@ -931,13 +975,20 @@ function registerChild() {
   const village  = document.getElementById('reg-village').value.trim();
   const community= document.getElementById('reg-community').value.trim();
   const facility = document.getElementById('reg-facility').value.trim();
-  if (!name) { showToast('Please enter the child\'s name'); return; }
-  if (!dob)  { showToast('Please enter the date of birth'); return; }
-  const c = {id:'c'+Date.now(), name, dob, sex, caregiver, phone, village, community, facility, doses:{}, registeredAt:today()};
+  if (!name)      { showToast('Child\'s full name is required'); return; }
+  if (!cardno)    { showToast('Under 5 Card Number is required'); return; }
+  if (!validateCardNo(cardno)) { showToast('Card No must be format PPDD-FF-YYYY-NNNN'); return; }
+  if (!dob)       { showToast('Date of birth is required'); return; }
+  if (!sex)       { showToast('Please select sex'); return; }
+  if (!caregiver) { showToast('Caregiver name is required'); return; }
+  if (!village)   { showToast('Village is required'); return; }
+  if (!community) { showToast('NHC / Zone is required'); return; }
+  if (!facility)  { showToast('Health facility is required'); return; }
+  const c = {id:'c'+Date.now(), name, cardno, dob, sex, caregiver, phone, village, community, facility, doses:{}, registeredAt:today()};
   children.push(c);
   saveChildren();
-  addLog('New child registered: '+name);
-  ['reg-name','reg-dob','reg-caregiver','reg-phone','reg-village','reg-community','reg-facility'].forEach(id=>document.getElementById(id).value='');
+  addLog('New child registered: '+name+' ('+cardno+')');
+  ['reg-name','reg-cardno','reg-dob','reg-caregiver','reg-phone','reg-village','reg-community','reg-facility'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('reg-sex').value='';
   showToast('Child registered ✓');
   openChild(c.id);
@@ -948,9 +999,9 @@ function registerChild() {
 // ══════════════════════════════════════════════
 function exportCSV() {
   if (!children.length) { showToast('No children to export'); return; }
-  const header = ['ID','Name','DOB','Sex','Age','Caregiver','Phone','Village','Community','Facility','Registered'].concat(SCHEDULE.map(d=>d.name));
+  const header = ['ID','Card No','Name','DOB','Sex','Age','Caregiver','Phone','Village','NHC/Zone','Facility','Registered'].concat(SCHEDULE.map(d=>d.name));
   const rows = children.map(c => {
-    const base = [c.id,c.name,c.dob,c.sex||'',ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.registeredAt||''];
+    const base = [c.id,c.cardno||'',c.name,c.dob,c.sex||'',ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.registeredAt||''];
     return base.concat(SCHEDULE.map(d=>{ const st=getDoseStatus(c,d); return st.status==='done'?st.given:st.status.toUpperCase(); }));
   });
   downloadCSV([header,...rows], 'epi-children-'+today()+'.csv');
@@ -959,8 +1010,8 @@ function exportCSV() {
 function exportDefaulters() {
   const def = children.filter(c=>getChildSummary(c).overdue>0);
   if (!def.length) { showToast('No defaulters — all up to date!'); return; }
-  const header = ['ID','Name','DOB','Age','Caregiver','Phone','Village','Community','Facility','Overdue antigens'];
-  const rows = def.map(c => [c.id,c.name,c.dob,ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',SCHEDULE.filter(d=>getDoseStatus(c,d).status==='overdue').map(d=>d.name).join('; ')]);
+  const header = ['ID','Card No','Name','DOB','Age','Caregiver','Phone','Village','NHC/Zone','Facility','Overdue antigens'];
+  const rows = def.map(c => [c.id,c.cardno||'',c.name,c.dob,ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',SCHEDULE.filter(d=>getDoseStatus(c,d).status==='overdue').map(d=>d.name).join('; ')]);
   downloadCSV([header,...rows], 'epi-defaulters-'+today()+'.csv');
   addLog('Defaulter list exported');
 }
