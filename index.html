@@ -256,7 +256,7 @@
     <div id="screen-children" class="screen">
       <div class="search-wrap">
         <i class="ti ti-search" aria-hidden="true"></i>
-        <input type="text" id="search-input" placeholder="Search by name or village…" oninput="filterChildren()" autocomplete="off">
+        <input type="text" id="search-input" placeholder="Search by name, card no, village…" oninput="filterChildren()" autocomplete="off">
       </div>
       <div id="children-list"></div>
     </div>
@@ -307,8 +307,8 @@
         <input type="tel" id="reg-phone" placeholder="e.g. 0977123456" autocomplete="off">
       </div>
       <div class="form-group">
-        <label class="form-label">Village *</label>
-        <input type="text" id="reg-village" placeholder="e.g. Nkeyema" autocomplete="off">
+        <label class="form-label">Village / Landmark *</label>
+        <input type="text" id="reg-village" placeholder="e.g. Nkeyema market" autocomplete="off">
       </div>
       <div class="form-group">
         <label class="form-label">NHC / Zone *</label>
@@ -436,7 +436,7 @@
       <input type="tel" id="edit-phone" autocomplete="off">
     </div>
     <div class="form-group">
-      <label class="form-label">Village *</label>
+      <label class="form-label">Village / Landmark *</label>
       <input type="text" id="edit-village" autocomplete="off">
     </div>
     <div class="form-group">
@@ -911,7 +911,7 @@ function renderDetail(c) {
       <div class="avatar">${initials(c.name)}</div>
       <div style="flex:1">
         <div class="detail-name">${escHtml(c.name)}</div>
-        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}${c.lastEdited?' · <span style="color:var(--teal-400)">Edited '+niceDate(c.lastEdited)+'</span>':''}</div>
+        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village/Landmark: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}${c.lastEdited?' · <span style="color:var(--teal-400)">Edited '+niceDate(c.lastEdited)+'</span>':''}</div>
       </div>
       <button onclick="openEditModal('${c.id}')" style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--teal-600);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;align-self:flex-start;margin-top:2px" aria-label="Edit child record">
         <i class="ti ti-pencil" aria-hidden="true"></i> Edit
@@ -980,7 +980,7 @@ function saveEditChild() {
   if (!dob)       { showToast('Date of birth is required'); return; }
   if (!sex)       { showToast('Please select sex'); return; }
   if (!caregiver) { showToast('Caregiver name is required'); return; }
-  if (!village)   { showToast('Village is required'); return; }
+  if (!village)   { showToast('Village / Landmark is required'); return; }
   if (!community) { showToast('NHC / Zone is required'); return; }
   if (!facility)  { showToast('Health facility is required'); return; }
 
@@ -1418,7 +1418,7 @@ function registerChild() {
   if (!dob)       { showToast('Date of birth is required'); return; }
   if (!sex)       { showToast('Please select sex'); return; }
   if (!caregiver) { showToast('Caregiver name is required'); return; }
-  if (!village)   { showToast('Village is required'); return; }
+  if (!village)   { showToast('Village / Landmark is required'); return; }
   if (!community) { showToast('NHC / Zone is required'); return; }
   if (!facility)  { showToast('Health facility is required'); return; }
   // Final duplicate safety net
@@ -1441,7 +1441,7 @@ function registerChild() {
 // ══════════════════════════════════════════════
 function exportCSV() {
   if (!children.length) { showToast('No children to export'); return; }
-  const header = ['ID','Card No','Name','DOB','Sex','Age','Caregiver','Phone','Village','NHC/Zone','Facility','Registered'].concat(SCHEDULE.map(d=>d.name));
+  const header = ['ID','Card No','Name','DOB','Sex','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Registered'].concat(SCHEDULE.map(d=>d.name));
   const rows = children.map(c => {
     const base = [c.id,c.cardno||'',c.name,c.dob,c.sex||'',ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.registeredAt||''];
     return base.concat(SCHEDULE.map(d=>{ const st=getDoseStatus(c,d); return st.status==='done'?st.given:st.status.toUpperCase(); }));
@@ -1452,7 +1452,7 @@ function exportCSV() {
 function exportDefaulters() {
   const def = children.filter(c=>getChildSummary(c).overdue>0);
   if (!def.length) { showToast('No defaulters — all up to date!'); return; }
-  const header = ['ID','Card No','Name','DOB','Age','Caregiver','Phone','Village','NHC/Zone','Facility','Overdue antigens'];
+  const header = ['ID','Card No','Name','DOB','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Overdue antigens'];
   const rows = def.map(c => [c.id,c.cardno||'',c.name,c.dob,ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',SCHEDULE.filter(d=>getDoseStatus(c,d).status==='overdue').map(d=>d.name).join('; ')]);
   downloadCSV([header,...rows], 'epi-defaulters-'+today()+'.csv');
   addLog('Defaulter list exported');
