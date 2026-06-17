@@ -263,13 +263,19 @@
 
     <div id="screen-register" class="screen">
       <div class="section-label">Register new child</div>
+
+      <!-- Duplicate check panel — shown when matches found -->
+      <div id="dup-panel" style="display:none;margin-bottom:14px"></div>
+
       <div class="form-group">
         <label class="form-label">Child's full name *</label>
-        <input type="text" id="reg-name" placeholder="e.g. Mwape Banda" autocomplete="off">
+        <input type="text" id="reg-name" placeholder="e.g. Mwape Banda" autocomplete="off"
+          oninput="runDupCheck()" onchange="runDupCheck()">
       </div>
       <div class="form-group">
         <label class="form-label">Under 5 Card Number *</label>
-        <input type="text" id="reg-cardno" placeholder="PPDD-FF-YYYY-NNNN" autocomplete="off" maxlength="17" oninput="formatCardNo(this)" style="font-family:monospace;letter-spacing:0.05em">
+        <input type="text" id="reg-cardno" placeholder="PPDD-FF-YYYY-NNNN" autocomplete="off" maxlength="17"
+          oninput="formatCardNo(this);runDupCheck()" style="font-family:monospace;letter-spacing:0.05em">
         <div class="form-hint" style="margin-top:6px;line-height:1.7">
           <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">PP</span> Provincial code &nbsp;·&nbsp;
           <span style="font-family:monospace;font-size:12px;color:var(--teal-600)">DD</span> District code &nbsp;·&nbsp;
@@ -281,7 +287,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Date of birth *</label>
-        <input type="date" id="reg-dob">
+        <input type="date" id="reg-dob" onchange="runDupCheck()">
         <div class="form-hint">Used to auto-calculate all vaccine due dates</div>
       </div>
       <div class="form-group">
@@ -312,7 +318,7 @@
         <label class="form-label">Health facility *</label>
         <input type="text" id="reg-facility" placeholder="e.g. Kaoma District Hospital" autocomplete="off">
       </div>
-      <button class="btn-primary" onclick="registerChild()">
+      <button class="btn-primary" id="reg-submit-btn" onclick="registerChild()">
         <i class="ti ti-user-plus" aria-hidden="true"></i> Register child
       </button>
     </div>
@@ -390,6 +396,62 @@
     <button class="nav-btn" id="nav-register" onclick="showScreen('register')"><i class="ti ti-user-plus" aria-hidden="true"></i><span>Register</span></button>
     <button class="nav-btn" id="nav-settings" onclick="showScreen('settings')"><i class="ti ti-shield" aria-hidden="true"></i><span>Security</span></button>
   </nav>
+</div>
+
+<!-- ══ EDIT CHILD RECORD MODAL ══ -->
+<div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.45);align-items:flex-end;justify-content:center;overflow-y:auto">
+  <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:480px;padding:22px 18px 36px;margin-top:auto">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--text)"><i class="ti ti-pencil" style="color:var(--teal-600);margin-right:6px" aria-hidden="true"></i>Edit Child Record</div>
+      <button onclick="closeEditModal()" style="background:none;border:none;font-size:22px;color:var(--text-3);cursor:pointer;padding:4px" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Child's full name *</label>
+      <input type="text" id="edit-name" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Under 5 Card Number *</label>
+      <input type="text" id="edit-cardno" maxlength="17" oninput="formatCardNo(this)" style="font-family:monospace;letter-spacing:0.05em" autocomplete="off">
+      <div class="form-hint">Format: PPDD-FF-YYYY-NNNN  e.g. 0803-12-2024-0001</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Date of birth *</label>
+      <input type="date" id="edit-dob">
+      <div class="form-hint" style="color:var(--red-600)" id="edit-dob-warn"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Sex *</label>
+      <select id="edit-sex">
+        <option value="">Select…</option>
+        <option value="Female">Female</option>
+        <option value="Male">Male</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Caregiver name *</label>
+      <input type="text" id="edit-caregiver" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Caregiver phone <span style="color:var(--text-3);font-weight:400">(optional)</span></label>
+      <input type="tel" id="edit-phone" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Village *</label>
+      <input type="text" id="edit-village" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">NHC / Zone *</label>
+      <input type="text" id="edit-community" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Health facility *</label>
+      <input type="text" id="edit-facility" autocomplete="off">
+    </div>
+    <div style="display:flex;gap:10px;margin-top:4px">
+      <button class="btn-secondary" style="margin:0;flex:1" onclick="closeEditModal()">Cancel</button>
+      <button class="btn-primary" style="flex:2" onclick="saveEditChild()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save changes</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══ DATE PICKER MODAL ══ -->
@@ -847,10 +909,13 @@ function renderDetail(c) {
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-header">
       <div class="avatar">${initials(c.name)}</div>
-      <div>
+      <div style="flex:1">
         <div class="detail-name">${escHtml(c.name)}</div>
-        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}</div>
+        <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}${c.lastEdited?' · <span style="color:var(--teal-400)">Edited '+niceDate(c.lastEdited)+'</span>':''}</div>
       </div>
+      <button onclick="openEditModal('${c.id}')" style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--teal-600);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;align-self:flex-start;margin-top:2px" aria-label="Edit child record">
+        <i class="ti ti-pencil" aria-hidden="true"></i> Edit
+      </button>
     </div>
     <div class="progress-summary">
       <div class="progress-summary-bar">
@@ -862,6 +927,89 @@ function renderDetail(c) {
     ${groupsHTML}
     <button class="btn-secondary btn-danger" onclick="confirmDeleteChild('${c.id}')"><i class="ti ti-trash" aria-hidden="true"></i> Remove this child</button>
   `;
+}
+
+// ══════════════════════════════════════════════
+// EDIT CHILD RECORD MODAL
+// ══════════════════════════════════════════════
+let _editChildId = null;
+
+function openEditModal(childId) {
+  const c = children.find(x=>x.id===childId);
+  if (!c) return;
+  _editChildId = childId;
+  document.getElementById('edit-name').value      = c.name      || '';
+  document.getElementById('edit-cardno').value    = c.cardno    || '';
+  document.getElementById('edit-dob').value       = c.dob       || '';
+  document.getElementById('edit-sex').value       = c.sex       || '';
+  document.getElementById('edit-caregiver').value = c.caregiver || '';
+  document.getElementById('edit-phone').value     = c.phone     || '';
+  document.getElementById('edit-village').value   = c.village   || '';
+  document.getElementById('edit-community').value = c.community || '';
+  document.getElementById('edit-facility').value  = c.facility  || '';
+  document.getElementById('edit-dob-warn').textContent = '';
+  document.getElementById('edit-dob').onchange = function() {
+    const hasDoses = c.doses && Object.keys(c.doses).length > 0;
+    const warn = document.getElementById('edit-dob-warn');
+    if (hasDoses && this.value !== c.dob) {
+      warn.textContent = '⚠ Changing the date of birth will affect all vaccine due dates. Existing dose records are kept but may now show different validation status.';
+    } else { warn.textContent = ''; }
+  };
+  document.getElementById('edit-modal').style.display = 'flex';
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').style.display = 'none';
+  _editChildId = null;
+}
+
+function saveEditChild() {
+  const name      = document.getElementById('edit-name').value.trim();
+  const cardno    = document.getElementById('edit-cardno').value.trim();
+  const dob       = document.getElementById('edit-dob').value;
+  const sex       = document.getElementById('edit-sex').value;
+  const caregiver = document.getElementById('edit-caregiver').value.trim();
+  const phone     = document.getElementById('edit-phone').value.trim();
+  const village   = document.getElementById('edit-village').value.trim();
+  const community = document.getElementById('edit-community').value.trim();
+  const facility  = document.getElementById('edit-facility').value.trim();
+
+  if (!name)      { showToast('Child\'s full name is required'); return; }
+  if (!cardno)    { showToast('Under 5 Card Number is required'); return; }
+  if (!validateCardNo(cardno)) { showToast('Card No must be format PPDD-FF-YYYY-NNNN'); return; }
+  if (!dob)       { showToast('Date of birth is required'); return; }
+  if (!sex)       { showToast('Please select sex'); return; }
+  if (!caregiver) { showToast('Caregiver name is required'); return; }
+  if (!village)   { showToast('Village is required'); return; }
+  if (!community) { showToast('NHC / Zone is required'); return; }
+  if (!facility)  { showToast('Health facility is required'); return; }
+
+  const c = children.find(x=>x.id===_editChildId);
+  if (!c) return;
+
+  const changes = [];
+  if (c.name      !== name)      changes.push('name');
+  if (c.cardno    !== cardno)    changes.push('card no');
+  if (c.dob       !== dob)       changes.push('DOB');
+  if (c.sex       !== sex)       changes.push('sex');
+  if (c.caregiver !== caregiver) changes.push('caregiver');
+  if (c.phone     !== phone)     changes.push('phone');
+  if (c.village   !== village)   changes.push('village');
+  if (c.community !== community) changes.push('NHC/Zone');
+  if (c.facility  !== facility)  changes.push('facility');
+
+  c.name=name; c.cardno=cardno; c.dob=dob; c.sex=sex;
+  c.caregiver=caregiver; c.phone=phone; c.village=village;
+  c.community=community; c.facility=facility;
+  c.lastEdited = today();
+
+  saveChildren();
+  if (changes.length > 0) addLog('Record edited for '+name+' — changed: '+changes.join(', '));
+  showToast('Record updated ✓');
+  closeEditModal();
+  renderDetail(c);
+  renderDashboard();
+  renderChildren();
 }
 
 // ══════════════════════════════════════════════
@@ -1160,6 +1308,99 @@ function validateCardNo(val) {
   return /^\d{4}-\d{2}-\d{4}-\d{4}$/.test(val);
 }
 
+// ══════════════════════════════════════════════
+// DUPLICATE CHECK
+// ══════════════════════════════════════════════
+
+function nameSimilarity(a, b) {
+  const clean = s => s.toLowerCase().replace(/\s+/,' ').trim();
+  const ca = clean(a), cb = clean(b);
+  if (ca === cb) return 'exact';
+  const wa = ca.split(' '), wb = cb.split(' ');
+  const shared = wa.filter(w => w.length > 1 && wb.includes(w));
+  if (shared.length >= 2) return 'similar';
+  if (shared.length >= 1 && (wa.length <= 2 || wb.length <= 2)) return 'partial';
+  return null;
+}
+
+function runDupCheck() {
+  const name   = document.getElementById('reg-name').value.trim();
+  const cardno = document.getElementById('reg-cardno').value.trim();
+  const dob    = document.getElementById('reg-dob').value;
+  const panel  = document.getElementById('dup-panel');
+  const btn    = document.getElementById('reg-submit-btn');
+
+  if (!name && !cardno) {
+    panel.style.display = 'none';
+    btn.disabled = false; btn.style.opacity = '1';
+    return;
+  }
+
+  const exactCardMatches = [], exactChildMatches = [], likelyMatches = [], possibleMatches = [];
+
+  children.forEach(c => {
+    if (cardno && c.cardno && cardno === c.cardno) { exactCardMatches.push(c); return; }
+    const nameSim = name ? nameSimilarity(name, c.name) : null;
+    const dobMatch = dob && c.dob === dob;
+    if (nameSim === 'exact' && dobMatch)   { exactChildMatches.push(c); return; }
+    if ((nameSim === 'similar' || nameSim === 'partial') && dobMatch) { likelyMatches.push(c); return; }
+    if ((nameSim === 'exact' || nameSim === 'similar') && name.length >= 4) possibleMatches.push(c);
+  });
+
+  const hasBlock = exactCardMatches.length > 0 || exactChildMatches.length > 0;
+  const hasWarn  = likelyMatches.length > 0;
+
+  if (!exactCardMatches.length && !exactChildMatches.length && !likelyMatches.length && !possibleMatches.length) {
+    panel.style.display = 'none';
+    btn.disabled = false; btn.style.opacity = '1';
+    return;
+  }
+
+  let html = '';
+  if (exactCardMatches.length) {
+    html += `<div style="background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--red-700);margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-ban" aria-hidden="true"></i> Duplicate card number — child already registered</div>`;
+    exactCardMatches.forEach(c => { html += dupCardHTML(c); });
+    html += `</div>`;
+  }
+  if (exactChildMatches.length) {
+    html += `<div style="background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--red-700);margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-ban" aria-hidden="true"></i> This child appears to be already registered</div>`;
+    exactChildMatches.forEach(c => { html += dupCardHTML(c); });
+    html += `</div>`;
+  }
+  if (likelyMatches.length) {
+    html += `<div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:var(--amber-600);margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Similar child found with same date of birth — check before registering</div>`;
+    likelyMatches.forEach(c => { html += dupCardHTML(c); });
+    html += `</div>`;
+  }
+  if (possibleMatches.length && !hasBlock && !hasWarn) {
+    html += `<div style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:12px 14px;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:8px;display:flex;align-items:center;gap:6px"><i class="ti ti-search" aria-hidden="true"></i> Similar name found — confirm this is a different child</div>`;
+    possibleMatches.slice(0,3).forEach(c => { html += dupCardHTML(c); });
+    html += `</div>`;
+  }
+
+  panel.innerHTML = html;
+  panel.style.display = 'block';
+  btn.disabled = hasBlock;
+  btn.style.opacity = hasBlock ? '0.45' : '1';
+}
+
+function dupCardHTML(c) {
+  const s = getChildSummary(c);
+  const pct = Math.round((s.done/s.total)*100);
+  return `<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px;cursor:pointer" onclick="openChild('${c.id}')">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+      <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(c.name)}</div>
+      <span style="font-size:11px;color:var(--teal-600);font-weight:600">${pct}% immunised</span>
+    </div>
+    <div style="font-size:11px;color:var(--text-2)">DOB: ${niceDate(c.dob)} · Card: ${escHtml(c.cardno||'—')} · ${escHtml(c.village||'—')}</div>
+    <div style="font-size:11px;color:var(--teal-600);margin-top:4px">Tap to view this child's record →</div>
+  </div>`;
+}
+
 
 function registerChild() {
   const name     = document.getElementById('reg-name').value.trim();
@@ -1180,12 +1421,17 @@ function registerChild() {
   if (!village)   { showToast('Village is required'); return; }
   if (!community) { showToast('NHC / Zone is required'); return; }
   if (!facility)  { showToast('Health facility is required'); return; }
+  // Final duplicate safety net
+  if (children.find(c => c.cardno && c.cardno === cardno)) { showToast('Card number already registered'); return; }
+  if (children.find(c => nameSimilarity(c.name, name) === 'exact' && c.dob === dob)) { showToast('Child with same name and DOB already registered'); return; }
   const c = {id:'c'+Date.now(), name, cardno, dob, sex, caregiver, phone, village, community, facility, doses:{}, registeredAt:today()};
   children.push(c);
   saveChildren();
   addLog('New child registered: '+name+' ('+cardno+')');
   ['reg-name','reg-cardno','reg-dob','reg-caregiver','reg-phone','reg-village','reg-community','reg-facility'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('reg-sex').value='';
+  document.getElementById('dup-panel').style.display='none';
+  const btn=document.getElementById('reg-submit-btn'); btn.disabled=false; btn.style.opacity='1';
   showToast('Child registered ✓');
   openChild(c.id);
 }
