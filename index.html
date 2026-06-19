@@ -398,6 +398,53 @@
   </nav>
 </div>
 
+<!-- ══ STATUS UPDATE MODAL ══ -->
+<div id="status-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.45);align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:480px;padding:22px 18px 36px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div style="font-size:16px;font-weight:700;color:var(--text)"><i class="ti ti-activity" style="color:var(--teal-600);margin-right:6px" aria-hidden="true"></i>Update Child Status</div>
+      <button onclick="closeStatusModal()" style="background:none;border:none;font-size:22px;color:var(--text-3);cursor:pointer;padding:4px" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    </div>
+    <div id="status-child-name" style="font-size:13px;color:var(--text-2);margin-bottom:16px"></div>
+
+    <!-- Status options -->
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-md);border:0.5px solid var(--border-2);cursor:pointer;background:var(--surface)" id="status-opt-alive">
+        <input type="radio" name="child-status" value="alive" style="width:18px;height:18px;accent-color:#0F6E56">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--teal-600)"><i class="ti ti-circle-check" aria-hidden="true"></i> Alive — Active</div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:2px">Child is alive and attending the facility. Included in denominator.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-md);border:0.5px solid var(--border-2);cursor:pointer;background:var(--surface)" id="status-opt-relocated">
+        <input type="radio" name="child-status" value="relocated" style="width:18px;height:18px;accent-color:#185FA5">
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:600;color:var(--blue-600)"><i class="ti ti-map-pin" aria-hidden="true"></i> Relocated</div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:2px">Child has moved away. Will be deactivated and excluded from denominator.</div>
+        </div>
+      </label>
+      <div id="relocated-to-wrap" style="display:none;padding:0 14px 4px">
+        <label style="font-size:12px;font-weight:500;color:var(--text-2);display:block;margin-bottom:5px">Relocated to (location) *</label>
+        <input type="text" id="relocated-to-input" placeholder="e.g. Lusaka — Chawama" style="width:100%;background:var(--surface);border:0.5px solid var(--border-2);border-radius:var(--radius-sm);padding:10px 12px;font-size:14px;color:var(--text);font-family:inherit;outline:none">
+      </div>
+      <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--radius-md);border:0.5px solid var(--border-2);cursor:pointer;background:var(--surface)" id="status-opt-dead">
+        <input type="radio" name="child-status" value="dead" style="width:18px;height:18px;accent-color:#A32D2D">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--red-600)"><i class="ti ti-heart-broken" aria-hidden="true"></i> Deceased</div>
+          <div style="font-size:11px;color:var(--text-2);margin-top:2px">Child has died. Will be deactivated and excluded from denominator.</div>
+        </div>
+      </label>
+    </div>
+
+    <div style="font-size:11px;color:var(--text-3);margin-bottom:14px" id="status-date-note">Status will be recorded as of today (${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}).</div>
+
+    <div style="display:flex;gap:10px">
+      <button class="btn-secondary" style="margin:0;flex:1" onclick="closeStatusModal()">Cancel</button>
+      <button class="btn-primary" style="flex:2" onclick="saveChildStatus()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save status</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ EDIT CHILD RECORD MODAL ══ -->
 <div id="edit-modal" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.45);align-items:flex-end;justify-content:center;overflow-y:auto">
   <div style="background:var(--surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;width:100%;max-width:480px;padding:22px 18px 36px;margin-top:auto">
@@ -811,20 +858,77 @@ function getChildSummary(child) {
 }
 
 // ══════════════════════════════════════════════
+// FIC — FULLY IMMUNISED CHILD (MOH Definition)
+// A child under 1 year who has received all
+// 14 core antigens before their 1st birthday.
+// OPV0, RV3, IPV2 and post-12mo doses excluded.
+// ══════════════════════════════════════════════
+const FIC_DOSES = [
+  'bcg',
+  'opv1','opv2','opv3',
+  'penta1','penta2','penta3',
+  'pcv1','pcv2','pcv3',
+  'rv1','rv2',
+  'ipv1',
+  'mr1'
+]; // 14 doses
+
+function isFIC(child) {
+  if (!isActive(child)) return false;
+  const firstBirthday = addDays(child.dob, 365);
+  return FIC_DOSES.every(doseId => {
+    const given = child.doses && child.doses[doseId];
+    return given && given <= firstBirthday;
+  });
+}
+
+function getFICProgress(child) {
+  const firstBirthday = addDays(child.dob, 365);
+  let done = 0;
+  const missing = [];
+  FIC_DOSES.forEach(doseId => {
+    const given = child.doses && child.doses[doseId];
+    if (given && given <= firstBirthday) {
+      done++;
+    } else {
+      const dose = SCHEDULE.find(d=>d.id===doseId);
+      missing.push(dose?.name || doseId);
+    }
+  });
+  return { done, total: FIC_DOSES.length, missing, firstBirthday };
+}
+
+function isFullyVaccinated(child) {
+  return getChildSummary(child).done === SCHEDULE.length;
+}
+
+function isOver12Months(child) {
+  return daysBetween(child.dob, today()) >= 365;
+}
+
+
+function isActive(c) { return !c.status || c.status === 'alive'; }
+
+// ══════════════════════════════════════════════
 // CHILD CARD
 // ══════════════════════════════════════════════
 function childCardHTML(c) {
   const s = getChildSummary(c);
   const pct = Math.round((s.done/s.total)*100);
+  const active = isActive(c);
   let badge = '';
-  if (s.overdue>0) badge=`<span class="badge badge-overdue">${s.overdue} overdue</span>`;
-  else if (s.due>0) badge=`<span class="badge badge-due">${s.due} due</span>`;
-  else if (s.done===s.total) badge=`<span class="badge badge-done">Complete</span>`;
-  return `<div class="child-card" onclick="openChild('${c.id}')">
+  if (!active) {
+    if (c.status==='dead')      badge=`<span class="badge" style="background:#F1EFE8;color:#5F5E5A">Deceased</span>`;
+    if (c.status==='relocated') badge=`<span class="badge" style="background:#E6F1FB;color:#185FA5">Relocated</span>`;
+  } else if (s.overdue>0)       badge=`<span class="badge badge-overdue">${s.overdue} overdue</span>`;
+  else if (s.due>0)             badge=`<span class="badge badge-due">${s.due} due</span>`;
+  else if (isFIC(c))            badge=`<span class="badge badge-done"><i class="ti ti-rosette" aria-hidden="true"></i> FIC</span>`;
+  else if (s.done===s.total)    badge=`<span class="badge badge-done">Complete</span>`;
+  return `<div class="child-card${active?'':' deactivated-card'}" onclick="openChild('${c.id}')" style="${active?'':'opacity:0.65'}">
     <div class="child-card-top"><div class="child-name-row">${escHtml(c.name)}</div>${badge}</div>
     <div class="child-meta">${ageString(c.dob)} · DOB ${niceDate(c.dob)} · Card: ${escHtml(c.cardno||'—')} · ${escHtml(c.village||'—')}</div>
     <div class="progress-wrap">
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${active?'var(--teal-400)':'#B4B2A9'}"></div></div>
       <div class="progress-pct">${s.done}/${s.total}</div>
     </div>
   </div>`;
@@ -834,22 +938,45 @@ function childCardHTML(c) {
 // DASHBOARD
 // ══════════════════════════════════════════════
 function renderDashboard() {
-  let total=children.length, fully=0, overdue=0, due=0;
-  children.forEach(c => { const s=getChildSummary(c); if(s.done===s.total) fully++; if(s.overdue>0) overdue++; if(s.due>0) due++; });
+  const active = children.filter(isActive);
+  const deactivated = children.filter(c=>!isActive(c));
+  let ficCount=0, fullyVax=0, overdue=0, due=0;
+  active.forEach(c => {
+    const s=getChildSummary(c);
+    if(isFIC(c)) ficCount++;
+    if(s.done===s.total) fullyVax++;
+    if(s.overdue>0) overdue++;
+    if(s.due>0) due++;
+  });
   document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Total children</div><div class="stat-val teal">${total}</div></div>
-    <div class="stat-card"><div class="stat-label">Fully immunised</div><div class="stat-val blue">${fully}</div></div>
+    <div class="stat-card"><div class="stat-label">Active children</div><div class="stat-val teal">${active.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Fully Immunised (FIC)</div><div class="stat-val blue">${ficCount}</div></div>
     <div class="stat-card"><div class="stat-label">Defaulters</div><div class="stat-val red">${overdue}</div></div>
     <div class="stat-card"><div class="stat-label">Due this week</div><div class="stat-val amber">${due}</div></div>
+    <div class="stat-card" style="grid-column:1/-1;background:var(--teal-50);border-color:var(--teal-100)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="stat-label" style="color:var(--teal-800)"><i class="ti ti-rosette" style="font-size:12px" aria-hidden="true"></i> FIC Rate (active children over 12 months)</div>
+          <div style="font-size:11px;color:var(--teal-600);margin-top:3px">14 core doses before 1st birthday: BCG · OPV 1-3 · Penta 1-3 · PCV 1-3 · RV 1-2 · IPV 1 · MR 1</div>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:var(--teal-600);white-space:nowrap;padding-left:12px">
+          ${(() => { const eligible=active.filter(c=>isOver12Months(c)); return eligible.length>0 ? Math.round((eligible.filter(isFIC).length/eligible.length)*100)+'%' : '—'; })()}
+        </div>
+      </div>
+    </div>
+    <div class="stat-card" style="grid-column:1/-1;display:flex;align-items:center;justify-content:space-between">
+      <div><div class="stat-label">Deactivated (not in denominator)</div><div style="font-size:13px;color:var(--text-2);margin-top:2px">${deactivated.filter(c=>c.status==='dead').length} deceased · ${deactivated.filter(c=>c.status==='relocated').length} relocated</div></div>
+      <div class="stat-val" style="color:var(--text-2);font-size:22px">${deactivated.length}</div>
+    </div>
   `;
   const alertDiv = document.getElementById('due-alerts');
-  alertDiv.innerHTML = overdue>0 ? `<div class="alert-banner"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span>${overdue} child${overdue>1?'ren have':' has'} overdue vaccines.</span></div>` : '';
-  const urgent = children.filter(c => { const s=getChildSummary(c); return s.overdue>0||s.due>0; });
+  alertDiv.innerHTML = overdue>0 ? `<div class="alert-banner"><i class="ti ti-alert-triangle" aria-hidden="true"></i><span>${overdue} active child${overdue>1?'ren have':' has'} overdue vaccines.</span></div>` : '';
+  const urgent = active.filter(c => { const s=getChildSummary(c); return s.overdue>0||s.due>0; });
   const list = document.getElementById('dashboard-list');
-  if (total===0) {
+  if (children.length===0) {
     list.innerHTML=`<div class="empty-state"><i class="ti ti-baby-carriage" aria-hidden="true"></i><p>No children registered yet.</p></div>`;
   } else if (urgent.length===0) {
-    list.innerHTML=`<div class="empty-state"><i class="ti ti-circle-check" aria-hidden="true"></i><p>All children are up to date.</p></div>`;
+    list.innerHTML=`<div class="empty-state"><i class="ti ti-circle-check" aria-hidden="true"></i><p>All active children are up to date.</p></div>`;
   } else {
     list.innerHTML = urgent.map(childCardHTML).join('');
   }
@@ -860,11 +987,26 @@ function renderDashboard() {
 // ══════════════════════════════════════════════
 function renderChildren() {
   const f = (document.getElementById('search-input').value||'').toLowerCase();
-  const sorted = [...children].filter(c => !f||c.name.toLowerCase().includes(f)||(c.village||'').toLowerCase().includes(f)||(c.community||'').toLowerCase().includes(f)||(c.cardno||'').toLowerCase().includes(f)).sort((a,b)=>{ const sa=getChildSummary(a),sb=getChildSummary(b); return sb.overdue-sa.overdue||a.name.localeCompare(b.name); });
+  const filtered = [...children].filter(c => !f||c.name.toLowerCase().includes(f)||(c.village||'').toLowerCase().includes(f)||(c.community||'').toLowerCase().includes(f)||(c.cardno||'').toLowerCase().includes(f));
+  // Active first (sorted by urgency), then deactivated
+  const active = filtered.filter(isActive).sort((a,b)=>{ const sa=getChildSummary(a),sb=getChildSummary(b); return sb.overdue-sa.overdue||a.name.localeCompare(b.name); });
+  const inactive = filtered.filter(c=>!isActive(c)).sort((a,b)=>a.name.localeCompare(b.name));
+  const sorted = [...active, ...inactive];
   const list = document.getElementById('children-list');
   if (children.length===0) list.innerHTML=`<div class="empty-state"><i class="ti ti-users" aria-hidden="true"></i><p>No children registered yet.</p></div>`;
   else if (sorted.length===0) list.innerHTML=`<div class="empty-state"><i class="ti ti-search" aria-hidden="true"></i><p>No children match your search.</p></div>`;
-  else list.innerHTML = sorted.map(childCardHTML).join('');
+  else {
+    let html = sorted.map(childCardHTML).join('');
+    if (inactive.length > 0 && active.length > 0) {
+      // Insert a divider before the deactivated section
+      const insertAt = html.lastIndexOf(childCardHTML(inactive[0]));
+      const divider = `<div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:14px 0 6px;padding-top:6px;border-top:0.5px solid var(--border)">Deactivated (${inactive.length})</div>`;
+      html = sorted.slice(0,active.length).map(childCardHTML).join('') + divider + inactive.map(childCardHTML).join('');
+    } else if (inactive.length > 0 && active.length === 0) {
+      html = `<div style="font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3);margin:0 0 6px">Deactivated (${inactive.length})</div>` + inactive.map(childCardHTML).join('');
+    }
+    list.innerHTML = html;
+  }
 }
 function filterChildren() { renderChildren(); }
 
@@ -889,54 +1031,192 @@ function renderDetail(c) {
     const doseHTML = SCHEDULE.filter(d=>d.group===g).map(d => {
       const st = getDoseStatus(c,d);
       let badge='', btn='';
-      if (st.status==='done') {
-        badge=`<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> ${niceDate(st.given)}</span>`;
-        btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','${st.given}')" title="Edit date"><i class="ti ti-pencil" aria-hidden="true"></i></button>`;
-      } else if (st.status==='overdue') {
-        badge=`<span class="badge badge-overdue">Overdue</span>`;
-        btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
-      } else if (st.status==='due') {
-        badge=`<span class="badge badge-due">Due ${niceDate(st.dueDate)}</span>`;
-        btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
+      if (!isActive(c)) {
+        // Deactivated — no action buttons on any dose
+        if (st.status==='done') badge=`<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> ${niceDate(st.given)}</span>`;
+        else if (st.status==='overdue') badge=`<span class="badge badge-overdue">Overdue</span>`;
+        else if (st.status==='due') badge=`<span class="badge badge-due">Due ${niceDate(st.dueDate)}</span>`;
+        else badge=`<span class="badge badge-upcoming">${niceDate(st.dueDate)}</span>`;
       } else {
-        badge=`<span class="badge badge-upcoming">${niceDate(st.dueDate)}</span>`;
-        btn=`<button class="record-btn" style="opacity:0.6" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
+        if (st.status==='done') {
+          badge=`<span class="badge badge-done"><i class="ti ti-check" aria-hidden="true"></i> ${niceDate(st.given)}</span>`;
+          btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','${st.given}')" title="Edit date"><i class="ti ti-pencil" aria-hidden="true"></i></button>`;
+        } else if (st.status==='overdue') {
+          badge=`<span class="badge badge-overdue">Overdue</span>`;
+          btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
+        } else if (st.status==='due') {
+          badge=`<span class="badge badge-due">Due ${niceDate(st.dueDate)}</span>`;
+          btn=`<button class="record-btn" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
+        } else {
+          badge=`<span class="badge badge-upcoming">${niceDate(st.dueDate)}</span>`;
+          btn=`<button class="record-btn" style="opacity:0.6" onclick="openDoseModal('${c.id}','${d.id}','')">Record</button>`;
+        }
       }
       return `<div class="dose-row"><div class="dose-name">${d.name}</div><div class="dose-right">${btn}${badge}</div></div>`;
     }).join('');
     return `<div class="vax-group"><div class="vax-group-title"><i class="ti ti-calendar-event" aria-hidden="true"></i>${g}</div><div class="vax-card">${doseHTML}</div></div>`;
   }).join('');
+  const deactivatedBanner = !isActive(c) ? `
+    <div style="background:${c.status==='dead'?'var(--red-50)':'var(--blue-50)'};border:0.5px solid ${c.status==='dead'?'#F09595':'#A8C8F0'};border-radius:var(--radius-md);padding:12px 14px;margin-bottom:14px;display:flex;align-items:flex-start;gap:10px">
+      <i class="ti ${c.status==='dead'?'ti-heart-broken':'ti-map-pin'}" style="font-size:18px;color:${c.status==='dead'?'var(--red-600)':'var(--blue-600)'};flex-shrink:0;margin-top:1px" aria-hidden="true"></i>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700;color:${c.status==='dead'?'var(--red-700)':'var(--blue-600)'}">
+          ${c.status==='dead'?'Child is deceased':'Child has relocated'}
+        </div>
+        <div style="font-size:11px;color:var(--text-2);margin-top:3px">
+          ${c.status==='dead'?'Deactivated on '+niceDate(c.statusDate||today())+'. Not included in immunisation denominator.':'Relocated to: '+escHtml(c.relocatedTo||'—')+'. Deactivated on '+niceDate(c.statusDate||today())+'.'}
+        </div>
+      </div>
+      <button onclick="openStatusModal('${c.id}')" style="background:none;border:0.5px solid var(--border-2);border-radius:var(--radius-sm);padding:5px 10px;cursor:pointer;font-size:11px;font-family:inherit;color:var(--text-2)">Reactivate</button>
+    </div>` : '';
+
   document.getElementById('detail-content').innerHTML = `
+    ${deactivatedBanner}
     <div class="detail-header">
       <div class="avatar">${initials(c.name)}</div>
       <div style="flex:1">
         <div class="detail-name">${escHtml(c.name)}</div>
         <div class="detail-sub">${ageString(c.dob)} · DOB: ${niceDate(c.dob)} · ${escHtml(c.sex||'—')}<br>Card No: ${escHtml(c.cardno||'—')}<br>Caregiver: ${escHtml(c.caregiver||'—')}${c.phone?' · '+escHtml(c.phone):''}<br>Village/Landmark: ${escHtml(c.village||'—')} · NHC/Zone: ${escHtml(c.community||'—')}<br>${escHtml(c.facility||'—')}${c.lastEdited?' · <span style="color:var(--teal-400)">Edited '+niceDate(c.lastEdited)+'</span>':''}</div>
       </div>
-      <button onclick="openEditModal('${c.id}')" style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--teal-600);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;align-self:flex-start;margin-top:2px" aria-label="Edit child record">
-        <i class="ti ti-pencil" aria-hidden="true"></i> Edit
-      </button>
+      ${isActive(c)
+        ? `<button onclick="openEditModal('${c.id}')" style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:8px;padding:7px 10px;cursor:pointer;color:var(--teal-600);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;align-self:flex-start;margin-top:2px" aria-label="Edit child record"><i class="ti ti-pencil" aria-hidden="true"></i> Edit</button>`
+        : `<button disabled title="Reactivate child to enable editing" style="background:var(--surface-2);border:0.5px solid var(--border);border-radius:8px;padding:7px 10px;cursor:not-allowed;color:var(--text-3);font-size:13px;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;align-self:flex-start;margin-top:2px;opacity:0.5"><i class="ti ti-lock" aria-hidden="true"></i> Locked</button>`
+      }
     </div>
     <div class="progress-summary">
       <div class="progress-summary-bar">
-        <div class="progress-summary-label">${s.done} of ${s.total} doses given${s.overdue>0?' · '+s.overdue+' overdue':''}</div>
-        <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
+        <div class="progress-summary-label">${s.done} of ${s.total} doses given${s.overdue>0&&isActive(c)?' · '+s.overdue+' overdue':''}</div>
+        <div class="progress-bar" style="height:8px"><div class="progress-fill" style="width:${pct}%;background:${isActive(c)?'var(--teal-400)':'#B4B2A9'}"></div></div>
       </div>
-      <div class="progress-summary-pct">${pct}%</div>
+      <div class="progress-summary-pct" style="color:${isActive(c)?'var(--teal-600)':'var(--text-2)'}">${pct}%</div>
     </div>
     ${groupsHTML}
+
+    <!-- FIC Status Panel -->
+    ${(() => {
+      const fic = getFICProgress(c);
+      const ficDone = isFIC(c);
+      const over12 = isOver12Months(c);
+      const dob1st = niceDate(fic.firstBirthday);
+      if (ficDone) {
+        return `<div style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+            <i class="ti ti-rosette" style="font-size:20px;color:var(--teal-600)" aria-hidden="true"></i>
+            <div style="font-size:14px;font-weight:700;color:var(--teal-800)">Fully Immunised Child (FIC) ✓</div>
+          </div>
+          <div style="font-size:11px;color:var(--teal-600)">All 14 core antigens received before 1st birthday (${dob1st}). This child counts in the FIC numerator.</div>
+        </div>`;
+      } else if (over12) {
+        return `<div style="background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <i class="ti ti-rosette-off" style="font-size:20px;color:var(--red-600)" aria-hidden="true"></i>
+            <div style="font-size:14px;font-weight:700;color:var(--red-700)">Not FIC — missed window</div>
+          </div>
+          <div style="font-size:11px;color:var(--red-600);margin-bottom:8px">Child is over 12 months. FIC window closed on ${dob1st}. ${fic.done}/${fic.total} FIC doses given.</div>
+          ${fic.missing.length>0?`<div style="font-size:11px;color:var(--text-2)"><strong>Missing:</strong> ${fic.missing.join(' · ')}</div>`:''}
+        </div>`;
+      } else {
+        const pct = Math.round((fic.done/fic.total)*100);
+        return `<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:7px">
+              <i class="ti ti-rosette" style="font-size:18px;color:var(--teal-600)" aria-hidden="true"></i>
+              <div style="font-size:13px;font-weight:600;color:var(--text)">FIC Progress — ${fic.done}/${fic.total} doses</div>
+            </div>
+            <div style="font-size:14px;font-weight:700;color:var(--teal-600)">${pct}%</div>
+          </div>
+          <div class="progress-bar" style="height:7px;margin-bottom:8px"><div class="progress-fill" style="width:${pct}%"></div></div>
+          <div style="font-size:11px;color:var(--text-2)">1st birthday: ${dob1st} · ${Math.max(0,daysBetween(today(),fic.firstBirthday))} days remaining</div>
+          ${fic.missing.length>0?`<div style="font-size:11px;color:var(--amber-600);margin-top:5px"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Still needed: ${fic.missing.join(' · ')}</div>`:''}
+        </div>`;
+      }
+    })()}
+
+    <!-- Visit Status Section -->
+    <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-md);padding:14px;margin-top:14px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:13px;font-weight:600;color:var(--text)"><i class="ti ti-activity" style="color:var(--teal-600);margin-right:6px;font-size:15px" aria-hidden="true"></i>Child Status</div>
+        <button onclick="openStatusModal('${c.id}')" style="background:var(--teal-50);border:0.5px solid var(--teal-100);border-radius:var(--radius-sm);padding:5px 12px;cursor:pointer;font-size:12px;font-family:inherit;color:var(--teal-600);font-weight:500">Update</button>
+      </div>
+      <div style="font-size:13px;color:${isActive(c)?'var(--teal-600)':c.status==='dead'?'var(--red-600)':'var(--blue-600)'}">
+        <i class="ti ${isActive(c)?'ti-circle-check':c.status==='dead'?'ti-heart-broken':'ti-map-pin'}" aria-hidden="true"></i>
+        ${isActive(c)?'Alive — Active':c.status==='dead'?'Deceased (deactivated)':'Relocated to '+escHtml(c.relocatedTo||'—')+' (deactivated)'}
+      </div>
+      ${c.statusDate?`<div style="font-size:11px;color:var(--text-3);margin-top:4px">Status updated: ${niceDate(c.statusDate)}</div>`:''}
+    </div>
+
     <button class="btn-secondary btn-danger" onclick="confirmDeleteChild('${c.id}')"><i class="ti ti-trash" aria-hidden="true"></i> Remove this child</button>
   `;
 }
 
 // ══════════════════════════════════════════════
-// EDIT CHILD RECORD MODAL
+// CHILD STATUS MODAL
 // ══════════════════════════════════════════════
+let _statusChildId = null;
+
+function openStatusModal(childId) {
+  const c = children.find(x=>x.id===childId);
+  if (!c) return;
+  _statusChildId = childId;
+  document.getElementById('status-child-name').textContent = 'Child: '+c.name+' · '+niceDate(c.dob);
+  // Set current status
+  const current = c.status || 'alive';
+  document.querySelectorAll('input[name="child-status"]').forEach(r => { r.checked = r.value === current; });
+  document.getElementById('relocated-to-input').value = c.relocatedTo || '';
+  document.getElementById('relocated-to-wrap').style.display = current==='relocated' ? 'block' : 'none';
+  // Wire up relocated field show/hide
+  document.querySelectorAll('input[name="child-status"]').forEach(r => {
+    r.onchange = () => {
+      document.getElementById('relocated-to-wrap').style.display = r.value==='relocated' ? 'block' : 'none';
+    };
+  });
+  document.getElementById('status-modal').style.display = 'flex';
+}
+
+function closeStatusModal() {
+  document.getElementById('status-modal').style.display = 'none';
+  _statusChildId = null;
+}
+
+function saveChildStatus() {
+  const c = children.find(x=>x.id===_statusChildId);
+  if (!c) return;
+  const selected = document.querySelector('input[name="child-status"]:checked');
+  if (!selected) { showToast('Please select a status'); return; }
+  const newStatus = selected.value;
+  // If relocated, require destination
+  if (newStatus === 'relocated') {
+    const dest = document.getElementById('relocated-to-input').value.trim();
+    if (!dest) { showToast('Please enter the relocation destination'); return; }
+    c.relocatedTo = dest;
+  } else {
+    c.relocatedTo = '';
+  }
+  const oldStatus = c.status || 'alive';
+  c.status = newStatus;
+  c.statusDate = today();
+  saveChildren();
+  const logMsg = newStatus==='alive' ? 'Reactivated: '+c.name :
+                 newStatus==='dead'  ? 'Marked deceased: '+c.name :
+                 'Marked relocated to '+(c.relocatedTo||'unknown')+': '+c.name;
+  addLog(logMsg, newStatus==='alive'?'info':'warn');
+  showToast(newStatus==='alive'?'Child reactivated ✓':newStatus==='dead'?'Child marked deceased':'Child marked as relocated');
+  closeStatusModal();
+  renderDetail(c);
+  renderDashboard();
+  renderChildren();
+}
+
+
 let _editChildId = null;
 
 function openEditModal(childId) {
   const c = children.find(x=>x.id===childId);
   if (!c) return;
+  if (!isActive(c)) {
+    showToast('Reactivate this child before editing');
+    return;
+  }
   _editChildId = childId;
   document.getElementById('edit-name').value      = c.name      || '';
   document.getElementById('edit-cardno').value    = c.cardno    || '';
@@ -1174,6 +1454,10 @@ function openDoseModal(childId, doseId, existingDate) {
   const c = children.find(x=>x.id===childId);
   const dose = SCHEDULE.find(d=>d.id===doseId);
   if (!c||!dose) return;
+  if (!isActive(c)) {
+    showToast('Reactivate this child before recording doses');
+    return;
+  }
   _modalChildId = childId; _modalDoseId = doseId;
   document.getElementById('modal-dose-name').textContent = dose.name;
   document.getElementById('modal-child-name').textContent = c.name;
@@ -1441,9 +1725,9 @@ function registerChild() {
 // ══════════════════════════════════════════════
 function exportCSV() {
   if (!children.length) { showToast('No children to export'); return; }
-  const header = ['ID','Card No','Name','DOB','Sex','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Registered'].concat(SCHEDULE.map(d=>d.name));
+  const header = ['ID','Card No','Name','DOB','Sex','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Status','Relocated To','FIC','Registered'].concat(SCHEDULE.map(d=>d.name));
   const rows = children.map(c => {
-    const base = [c.id,c.cardno||'',c.name,c.dob,c.sex||'',ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.registeredAt||''];
+    const base = [c.id,c.cardno||'',c.name,c.dob,c.sex||'',ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.status||'alive',c.relocatedTo||'',isFIC(c)?'YES':'NO',c.registeredAt||''];
     return base.concat(SCHEDULE.map(d=>{ const st=getDoseStatus(c,d); return st.status==='done'?st.given:st.status.toUpperCase(); }));
   });
   downloadCSV([header,...rows], 'epi-children-'+today()+'.csv');
@@ -1452,8 +1736,8 @@ function exportCSV() {
 function exportDefaulters() {
   const def = children.filter(c=>getChildSummary(c).overdue>0);
   if (!def.length) { showToast('No defaulters — all up to date!'); return; }
-  const header = ['ID','Card No','Name','DOB','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Overdue antigens'];
-  const rows = def.map(c => [c.id,c.cardno||'',c.name,c.dob,ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',SCHEDULE.filter(d=>getDoseStatus(c,d).status==='overdue').map(d=>d.name).join('; ')]);
+  const header = ['ID','Card No','Name','DOB','Age','Caregiver','Phone','Village/Landmark','NHC/Zone','Facility','Status','Relocated To','Overdue antigens'];
+  const rows = def.map(c => [c.id,c.cardno||'',c.name,c.dob,ageString(c.dob),c.caregiver||'',c.phone||'',c.village||'',c.community||'',c.facility||'',c.status||'alive',c.relocatedTo||'',SCHEDULE.filter(d=>getDoseStatus(c,d).status==='overdue').map(d=>d.name).join('; ')]);
   downloadCSV([header,...rows], 'epi-defaulters-'+today()+'.csv');
   addLog('Defaulter list exported');
 }
