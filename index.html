@@ -12,7 +12,24 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <!-- Firebase SDK (loaded dynamically when sync enabled) -->
+  <script>
+    window._firebaseLoaded = false;
+    function loadFirebase(cb) {
+      if (window._firebaseLoaded) { cb(); return; }
+      const s1 = document.createElement('script');
+      s1.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
+      s1.onload = () => {
+        const s2 = document.createElement('script');
+        s2.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js';
+        s2.onload = () => { window._firebaseLoaded = true; cb(); };
+        document.head.appendChild(s2);
+      };
+      document.head.appendChild(s1);
+    }
+  </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css">
+
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -240,6 +257,10 @@
       <div class="topbar-sub">Zambia Under-5 Immunisation</div>
     </div>
     <span class="offline-badge" id="offline-badge">Offline</span>
+    <div id="sync-indicator" style="display:none;align-items:center;gap:4px;font-size:11px;color:#E1F5EE;opacity:.85">
+      <span id="sync-dot" style="width:7px;height:7px;border-radius:50%;background:#9FE1CB;display:inline-block"></span>
+      <span id="sync-label">Synced</span>
+    </div>
     <button class="lock-icon-btn" onclick="lockApp()" title="Lock app" aria-label="Lock app">
       <i class="ti ti-lock" aria-hidden="true"></i>
     </button>
@@ -367,6 +388,49 @@
       <div class="section-label">Activity log</div>
       <div class="export-card">
         <div id="activity-log-list"></div>
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Real-time sync</div>
+      <div class="export-card" id="sync-setup-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div>
+            <div class="export-title" style="margin-bottom:0"><i class="ti ti-cloud" style="color:var(--teal-600);margin-right:6px" aria-hidden="true"></i>Firebase Sync</div>
+            <div style="font-size:11px;color:var(--text-3);margin-top:3px" id="sync-status-text">Not configured</div>
+          </div>
+          <label class="toggle" title="Enable sync">
+            <input type="checkbox" id="sync-toggle" onchange="onSyncToggle()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div id="sync-config-fields" style="display:none;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px">
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Firebase API Key *</label>
+            <input type="text" id="sync-api-key" placeholder="AIzaSy..." autocomplete="off" style="font-size:12px">
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Firebase Project ID *</label>
+            <input type="text" id="sync-project-id" placeholder="my-epi-tracker" autocomplete="off" style="font-size:12px">
+          </div>
+          <div class="form-group" style="margin-bottom:10px">
+            <label class="form-label">Workspace / Facility Code *</label>
+            <input type="text" id="sync-workspace" placeholder="e.g. KAOMA-DISTRICT-HOSPITAL" autocomplete="off" style="font-size:12px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
+            <div class="form-hint">All phones at the same facility must use the same code to share data.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-secondary" style="margin:0;flex:1;font-size:12px" onclick="saveSyncConfig()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save & connect</button>
+            <button class="btn-secondary" style="margin:0;flex:1;font-size:12px" onclick="syncNow()"><i class="ti ti-refresh" aria-hidden="true"></i> Sync now</button>
+          </div>
+          <div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:var(--border-radius-sm);padding:8px 10px;margin-top:10px;font-size:11px;color:var(--amber-800)">
+            <i class="ti ti-info-circle" aria-hidden="true"></i> Get your API Key and Project ID from <strong>console.firebase.google.com</strong> → Project Settings.
+          </div>
+        </div>
+        <div id="sync-connected-info" style="display:none;border-top:0.5px solid var(--border);padding-top:10px;margin-top:4px">
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:6px">Workspace: <strong id="sync-workspace-display"></strong></div>
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:10px">Last synced: <span id="sync-last-time">—</span></div>
+          <button class="btn-secondary" style="margin:0;width:100%;font-size:12px" onclick="syncNow()"><i class="ti ti-refresh" aria-hidden="true"></i> Sync now</button>
+          <button class="btn-secondary btn-danger" style="margin-top:8px;width:100%;font-size:12px" onclick="disconnectSync()"><i class="ti ti-plug-x" aria-hidden="true"></i> Disconnect sync</button>
+        </div>
       </div>
 
       <div class="divider"></div>
@@ -796,6 +860,8 @@ function showMainApp() {
   loadChildren();
   renderDashboard();
   renderLog();
+  renderSyncUI();
+  initSync();
   resetAutoLock();
 }
 
@@ -818,7 +884,7 @@ function showScreen(name) {
   if (nb) nb.classList.add('active');
   if (name === 'dashboard') renderDashboard();
   if (name === 'children')  renderChildren();
-  if (name === 'settings')  renderLog();
+  if (name === 'settings')  { renderLog(); renderSyncUI(); }
 }
 
 // ══════════════════════════════════════════════
@@ -1150,8 +1216,236 @@ function renderDetail(c) {
 }
 
 // ══════════════════════════════════════════════
-// CHILD STATUS MODAL
+// SYNC ENGINE — Firebase Firestore
 // ══════════════════════════════════════════════
+let _db            = null;
+let _syncUnsub     = null;
+let _syncStatus    = 'disabled'; // disabled | connecting | synced | error | offline
+let _isSyncing     = false;
+let _pendingPush   = new Set(); // childIds that need pushing
+
+function getSyncConfig() { return load('epi-sync-config', null); }
+function saveSyncConfig2(cfg) { save('epi-sync-config', cfg); }
+
+function isSyncEnabled() {
+  const cfg = getSyncConfig();
+  return !!(cfg && cfg.enabled && cfg.apiKey && cfg.projectId && cfg.workspaceId);
+}
+
+function setSyncIndicator(status) {
+  _syncStatus = status;
+  const ind   = document.getElementById('sync-indicator');
+  const dot   = document.getElementById('sync-dot');
+  const lbl   = document.getElementById('sync-label');
+  if (!ind) return;
+  if (status === 'disabled') { ind.style.display = 'none'; return; }
+  ind.style.display = 'flex';
+  const map = {
+    connecting: { color:'#EF9F27', label:'Syncing…', anim:'pulse 1s infinite' },
+    synced:     { color:'#9FE1CB', label:'Synced',   anim:'' },
+    error:      { color:'#F09595', label:'Sync error', anim:'' },
+    offline:    { color:'#B4B2A9', label:'Offline',   anim:'' },
+  };
+  const m = map[status] || map.offline;
+  dot.style.background  = m.color;
+  dot.style.animation   = m.anim;
+  lbl.textContent       = m.label;
+  // Update Security tab text
+  const txt = document.getElementById('sync-status-text');
+  if (txt) txt.textContent = status === 'synced' ? '✓ Connected and syncing' : status === 'connecting' ? 'Connecting…' : status === 'error' ? '✗ Sync error — check config' : '○ Offline (will sync when connected)';
+}
+
+function initSync() {
+  if (!isSyncEnabled()) return;
+  const cfg = getSyncConfig();
+  loadFirebase(() => {
+    try {
+      if (!firebase.apps.length) {
+        firebase.initializeApp({
+          apiKey:    cfg.apiKey,
+          projectId: cfg.projectId,
+          appId:     '1:000000000000:web:000000000000000000000000'
+        });
+      }
+      _db = firebase.firestore();
+      _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+      startRealtimeSync();
+      setSyncIndicator('connecting');
+    } catch(e) {
+      setSyncIndicator('error');
+      addLog('Sync error: '+e.message, 'danger');
+    }
+  });
+}
+
+function childCollection() {
+  const cfg = getSyncConfig();
+  if (!_db || !cfg) return null;
+  return _db.collection('workspaces').doc(cfg.workspaceId).collection('children');
+}
+
+function startRealtimeSync() {
+  if (_syncUnsub) _syncUnsub();
+  const col = childCollection();
+  if (!col) return;
+  _syncUnsub = col.onSnapshot(snapshot => {
+    setSyncIndicator('synced');
+    save('epi-sync-last', new Date().toISOString());
+    const el = document.getElementById('sync-last-time');
+    if (el) el.textContent = niceDateTime(new Date().toISOString());
+    let changed = false;
+    snapshot.docChanges().forEach(change => {
+      const remote = change.doc.data();
+      if (!remote || !remote.id) return;
+      if (change.type === 'removed') {
+        // Only remove if it was a remote delete (not triggered by us)
+        return;
+      }
+      const localIdx = children.findIndex(c => c.id === remote.id);
+      if (localIdx === -1) {
+        // New child from another device
+        children.push(remote);
+        changed = true;
+      } else {
+        // Compare lastModified — keep the newer version
+        const local = children[localIdx];
+        const remoteTime = remote.lastModified || '0';
+        const localTime  = local.lastModified  || '0';
+        if (remoteTime > localTime) {
+          children[localIdx] = remote;
+          changed = true;
+        }
+      }
+    });
+    if (changed) {
+      saveChildren();
+      renderAll();
+    }
+  }, err => {
+    setSyncIndicator(navigator.onLine ? 'error' : 'offline');
+  });
+}
+
+async function pushChild(child) {
+  if (!isSyncEnabled() || !_db) return;
+  const col = childCollection();
+  if (!col) return;
+  const c = Object.assign({}, child, { lastModified: new Date().toISOString() });
+  // Firestore doesn't allow undefined values
+  Object.keys(c).forEach(k => { if (c[k] === undefined) c[k] = null; });
+  try {
+    setSyncIndicator('connecting');
+    await col.doc(c.id).set(c, { merge: true });
+    save('epi-sync-last', new Date().toISOString());
+    setSyncIndicator('synced');
+    const el = document.getElementById('sync-last-time');
+    if (el) el.textContent = niceDateTime(new Date().toISOString());
+  } catch(e) {
+    setSyncIndicator(navigator.onLine ? 'error' : 'offline');
+  }
+}
+
+async function deleteChildFromSync(childId) {
+  if (!isSyncEnabled() || !_db) return;
+  const col = childCollection();
+  if (!col) return;
+  try { await col.doc(childId).delete(); } catch(e) {}
+}
+
+async function syncNow() {
+  if (!isSyncEnabled()) { showToast('Sync not configured'); return; }
+  if (!_db) { initSync(); showToast('Connecting…'); return; }
+  setSyncIndicator('connecting');
+  showToast('Syncing all records…');
+  try {
+    for (const c of children) {
+      await pushChild(c);
+    }
+    setSyncIndicator('synced');
+    showToast('All records synced ✓');
+  } catch(e) {
+    setSyncIndicator('error');
+    showToast('Sync error — check connection');
+  }
+}
+
+// Wrap saveChildren to also push to Firebase
+const _originalSaveChildren = saveChildren;
+function saveChildren() {
+  try { localStorage.setItem('epi-children', JSON.stringify(children)); } catch(e) {}
+}
+function saveAndSync(changedChild) {
+  saveChildren();
+  if (changedChild && isSyncEnabled() && _db) pushChild(changedChild);
+}
+
+// ── Sync UI ───────────────────────────────────
+function onSyncToggle() {
+  const enabled = document.getElementById('sync-toggle').checked;
+  const cfg = getSyncConfig() || {};
+  if (enabled) {
+    document.getElementById('sync-config-fields').style.display = 'block';
+    document.getElementById('sync-connected-info').style.display = 'none';
+    // Pre-fill if config exists
+    if (cfg.apiKey)      document.getElementById('sync-api-key').value     = cfg.apiKey;
+    if (cfg.projectId)   document.getElementById('sync-project-id').value  = cfg.projectId;
+    if (cfg.workspaceId) document.getElementById('sync-workspace').value   = cfg.workspaceId;
+  } else {
+    document.getElementById('sync-config-fields').style.display = 'none';
+    document.getElementById('sync-connected-info').style.display = 'none';
+    setSyncIndicator('disabled');
+  }
+}
+
+function saveSyncConfig() {
+  const apiKey      = document.getElementById('sync-api-key').value.trim();
+  const projectId   = document.getElementById('sync-project-id').value.trim();
+  const workspaceId = document.getElementById('sync-workspace').value.trim().toUpperCase();
+  if (!apiKey || !projectId || !workspaceId) { showToast('All three fields are required'); return; }
+  const cfg = { enabled: true, apiKey, projectId, workspaceId };
+  saveSyncConfig2(cfg);
+  addLog('Sync configured — workspace: '+workspaceId);
+  document.getElementById('sync-config-fields').style.display = 'none';
+  document.getElementById('sync-connected-info').style.display = 'block';
+  document.getElementById('sync-workspace-display').textContent = workspaceId;
+  showToast('Sync configured — connecting…');
+  if (_syncUnsub) { _syncUnsub(); _syncUnsub = null; }
+  _db = null; window._firebaseLoaded = false;
+  initSync();
+  renderSyncUI();
+}
+
+function disconnectSync() {
+  if (!confirm('Disconnect sync? All data remains on this device.')) return;
+  if (_syncUnsub) { _syncUnsub(); _syncUnsub = null; }
+  _db = null;
+  saveSyncConfig2({ enabled: false });
+  setSyncIndicator('disabled');
+  document.getElementById('sync-toggle').checked = false;
+  document.getElementById('sync-config-fields').style.display = 'none';
+  document.getElementById('sync-connected-info').style.display = 'none';
+  document.getElementById('sync-status-text').textContent = 'Not configured';
+  addLog('Sync disconnected');
+  showToast('Sync disconnected');
+}
+
+function renderSyncUI() {
+  const cfg = getSyncConfig();
+  const tog = document.getElementById('sync-toggle');
+  if (!tog) return;
+  if (cfg && cfg.enabled && cfg.apiKey) {
+    tog.checked = true;
+    document.getElementById('sync-config-fields').style.display = 'none';
+    document.getElementById('sync-connected-info').style.display = 'block';
+    document.getElementById('sync-workspace-display').textContent = cfg.workspaceId || '—';
+    const last = load('epi-sync-last', null);
+    document.getElementById('sync-last-time').textContent = last ? niceDateTime(last) : 'Never';
+  } else {
+    tog.checked = false;
+  }
+}
+
+
 let _statusChildId = null;
 
 function openStatusModal(childId) {
@@ -1196,6 +1490,7 @@ function saveChildStatus() {
   c.status = newStatus;
   c.statusDate = today();
   saveChildren();
+  if (isSyncEnabled() && _db) pushChild(c);
   const logMsg = newStatus==='alive' ? 'Reactivated: '+c.name :
                  newStatus==='dead'  ? 'Marked deceased: '+c.name :
                  'Marked relocated to '+(c.relocatedTo||'unknown')+': '+c.name;
@@ -1284,6 +1579,7 @@ function saveEditChild() {
   c.lastEdited = today();
 
   saveChildren();
+  if (isSyncEnabled() && _db) pushChild(c);
   if (changes.length > 0) addLog('Record edited for '+name+' — changed: '+changes.join(', '));
   showToast('Record updated ✓');
   closeEditModal();
@@ -1533,6 +1829,7 @@ function confirmDose() {
   const warns = issues.filter(i=>i.type==='warn');
   c.doses[_modalDoseId] = dateVal;
   saveChildren();
+  if (isSyncEnabled() && _db) pushChild(c);
   const warnNote = warns.length ? ' [with warning]' : '';
   addLog((isEdit?'Dose date edited: ':'Dose recorded: ')+dose.name+' ('+dateVal+') for '+c.name+warnNote);
   showToast(isEdit ? 'Date updated ✓' : 'Dose recorded ✓');
@@ -1548,6 +1845,7 @@ function clearDose() {
   if (!c||!dose) return;
   delete c.doses[_modalDoseId];
   saveChildren();
+  if (isSyncEnabled() && _db) pushChild(c);
   addLog('Dose removed: '+dose.name+' for '+c.name, 'warn');
   showToast('Dose removed');
   closeModal();
@@ -1559,8 +1857,10 @@ function confirmDeleteChild(id) {
   const c = children.find(x=>x.id===id);
   if (!confirm('Remove '+c?.name+'? This cannot be undone.')) return;
   addLog('Child record deleted: '+(c?.name||id), 'warn');
+  const delId = id;
   children = children.filter(x=>x.id!==id);
   saveChildren();
+  if (isSyncEnabled() && _db) deleteChildFromSync(delId);
   showToast('Record removed');
   showScreen('children');
 }
@@ -1711,6 +2011,7 @@ function registerChild() {
   const c = {id:'c'+Date.now(), name, cardno, dob, sex, caregiver, phone, village, community, facility, doses:{}, registeredAt:today()};
   children.push(c);
   saveChildren();
+  if (isSyncEnabled() && _db) pushChild(c);
   addLog('New child registered: '+name+' ('+cardno+')');
   ['reg-name','reg-cardno','reg-dob','reg-caregiver','reg-phone','reg-village','reg-community','reg-facility'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('reg-sex').value='';
