@@ -12,27 +12,6 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <!-- Firebase SDK (loaded dynamically when sync enabled) -->
-  <script>
-    window._firebaseLoaded = false;
-    function loadFirebase(cb) {
-      if (window._firebaseLoaded) { cb(); return; }
-      const s1 = document.createElement('script');
-      s1.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js';
-      s1.onload = () => {
-        const s2 = document.createElement('script');
-        s2.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js';
-        s2.onload = () => {
-          const s3 = document.createElement('script');
-          s3.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
-          s3.onload = () => { window._firebaseLoaded = true; cb(); };
-          document.head.appendChild(s3);
-        };
-        document.head.appendChild(s2);
-      };
-      document.head.appendChild(s1);
-    }
-  </script>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.3.0/dist/tabler-icons.min.css">
 
   <style>
@@ -400,7 +379,7 @@
       <div class="export-card" id="sync-setup-card">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
           <div>
-            <div class="export-title" style="margin-bottom:0"><i class="ti ti-cloud" style="color:var(--teal-600);margin-right:6px" aria-hidden="true"></i>Firebase Sync</div>
+            <div class="export-title" style="margin-bottom:0"><i class="ti ti-table" style="color:var(--teal-600);margin-right:6px" aria-hidden="true"></i>Google Sheets Sync</div>
             <div style="font-size:11px;color:var(--text-3);margin-top:3px" id="sync-status-text">Not configured</div>
           </div>
           <label class="toggle" title="Enable sync">
@@ -410,48 +389,20 @@
         </div>
         <div id="sync-config-fields" style="display:none;border-top:0.5px solid var(--border);padding-top:12px;margin-top:4px">
           <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Firebase API Key *</label>
-            <input type="text" id="sync-api-key" placeholder="AIzaSy..." autocomplete="off" style="font-size:12px">
-          </div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Firebase Project ID *</label>
-            <input type="text" id="sync-project-id" placeholder="my-epi-tracker" autocomplete="off" style="font-size:12px">
-          </div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Workspace / Facility Code *</label>
-            <input type="text" id="sync-workspace" placeholder="e.g. KAOMA-DISTRICT-HOSPITAL" autocomplete="off" style="font-size:12px;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()">
-            <div class="form-hint">All phones at the same facility must use the same code to share data.</div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn-secondary" style="margin:0;flex:1;font-size:12px" onclick="saveSyncConfig()"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save & connect</button>
-            <button class="btn-secondary" style="margin:0;flex:1;font-size:12px" onclick="syncNow()"><i class="ti ti-refresh" aria-hidden="true"></i> Sync now</button>
-          </div>
-          <div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:var(--border-radius-sm);padding:8px 10px;margin-top:10px;font-size:11px;color:var(--amber-800)">
-            <i class="ti ti-info-circle" aria-hidden="true"></i> Get your API Key and Project ID from <strong>console.firebase.google.com</strong> → Project Settings.
-          </div>
-        </div>
-        <div id="sync-connected-info" style="display:none;border-top:0.5px solid var(--border);padding-top:10px;margin-top:4px">
-          <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Workspace: <strong id="sync-workspace-display"></strong></div>
-          <div style="font-size:12px;color:var(--text-2);margin-bottom:10px">Last synced: <span id="sync-last-time">—</span></div>
-          <!-- Error message panel -->
-          <div id="sync-error-msg" style="display:none;background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-sm);padding:9px 11px;font-size:11px;color:var(--red-700);margin-bottom:10px;line-height:1.6"></div>
-          <!-- Firestore rules instructions -->
-          <div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--amber-800);line-height:1.7">
-            <div style="font-weight:700;margin-bottom:4px"><i class="ti ti-shield" aria-hidden="true"></i> Firestore security rules</div>
-            1. Go to <strong>console.firebase.google.com</strong><br>
-            2. Open your project → <strong>Firestore Database → Rules</strong><br>
-            3. Replace all rules with this and click <strong>Publish</strong>:<br>
-            <div style="background:#1A1A18;color:#9FE1CB;padding:7px 9px;border-radius:5px;margin-top:5px;font-family:monospace;font-size:10px;line-height:1.6">
-              rules_version = '2';<br>
-              service cloud.firestore {<br>
-              &nbsp;&nbsp;match /databases/{database}/documents {<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;}<br>
-              &nbsp;&nbsp;}<br>
-              }
+            <label class="form-label">Google Apps Script URL *</label>
+            <input type="text" id="sync-script-url" placeholder="https://script.google.com/macros/s/..." autocomplete="off" style="font-size:11px">
+            <div class="form-hint" style="margin-top:5px;line-height:1.6">
+              1. Open a Google Sheet → Extensions → Apps Script<br>
+              2. Paste the script code → Save → Deploy → Copy URL<br>
+              3. Paste the URL here
             </div>
           </div>
+          <button class="btn-primary" onclick="saveSyncConfig()" style="margin-bottom:8px"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save & connect</button>
+        </div>
+        <div id="sync-connected-info" style="display:none;border-top:0.5px solid var(--border);padding-top:10px;margin-top:4px">
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:4px">Syncing to: <strong>Google Sheets</strong></div>
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:10px">Last synced: <span id="sync-last-time">—</span></div>
+          <div id="sync-error-msg" style="display:none;background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-sm);padding:9px 11px;font-size:11px;color:var(--red-700);margin-bottom:10px;line-height:1.6"></div>
           <button class="btn-secondary" style="margin:0;width:100%;font-size:12px;margin-bottom:8px" onclick="syncNow()"><i class="ti ti-refresh" aria-hidden="true"></i> Sync all records now</button>
           <button class="btn-secondary btn-danger" style="width:100%;font-size:12px" onclick="disconnectSync()"><i class="ti ti-plug-x" aria-hidden="true"></i> Disconnect sync</button>
         </div>
@@ -1255,93 +1206,37 @@ function renderDetail(c) {
 }
 
 // ══════════════════════════════════════════════
-// SYNC ENGINE — Firebase Firestore
+// SYNC ENGINE — Google Sheets via Apps Script
 // ══════════════════════════════════════════════
-let _db            = null;
-let _syncUnsub     = null;
-let _syncStatus    = 'disabled'; // disabled | connecting | synced | error | offline
-let _isSyncing     = false;
-let _pendingPush   = new Set(); // childIds that need pushing
+let _syncStatus = 'disabled';
 
-function getSyncConfig() { return load('epi-sync-config', null); }
+function getSyncConfig()      { return load('epi-sync-config', null); }
 function saveSyncConfig2(cfg) { save('epi-sync-config', cfg); }
 
 function isSyncEnabled() {
   const cfg = getSyncConfig();
-  return !!(cfg && cfg.enabled && cfg.apiKey && cfg.projectId && cfg.workspaceId);
+  return !!(cfg && cfg.enabled && cfg.scriptUrl);
 }
 
 function setSyncIndicator(status) {
   _syncStatus = status;
-  const ind   = document.getElementById('sync-indicator');
-  const dot   = document.getElementById('sync-dot');
-  const lbl   = document.getElementById('sync-label');
+  const ind = document.getElementById('sync-indicator');
+  const dot = document.getElementById('sync-dot');
+  const lbl = document.getElementById('sync-label');
   if (!ind) return;
   if (status === 'disabled') { ind.style.display = 'none'; return; }
   ind.style.display = 'flex';
   const map = {
-    connecting: { color:'#EF9F27', label:'Syncing…', anim:'pulse 1s infinite' },
-    synced:     { color:'#9FE1CB', label:'Synced',   anim:'' },
-    error:      { color:'#F09595', label:'Sync error', anim:'' },
-    offline:    { color:'#B4B2A9', label:'Offline',   anim:'' },
+    connecting: { color:'#EF9F27', label:'Syncing…' },
+    synced:     { color:'#9FE1CB', label:'Synced'   },
+    error:      { color:'#F09595', label:'Sync error'},
+    offline:    { color:'#B4B2A9', label:'Offline'  },
   };
   const m = map[status] || map.offline;
-  dot.style.background  = m.color;
-  dot.style.animation   = m.anim;
-  lbl.textContent       = m.label;
-  // Update Security tab text
+  dot.style.background = m.color;
+  lbl.textContent      = m.label;
   const txt = document.getElementById('sync-status-text');
-  if (txt) txt.textContent = status === 'synced' ? '✓ Connected and syncing' : status === 'connecting' ? 'Connecting…' : status === 'error' ? '✗ Sync error — check config' : '○ Offline (will sync when connected)';
-}
-
-function initSync() {
-  if (!isSyncEnabled()) return;
-  const cfg = getSyncConfig();
-  loadFirebase(() => {
-    try {
-      // Always delete existing app and re-init to avoid stale config
-      if (firebase.apps.length) {
-        firebase.apps[0].delete().then(() => _doInitFirebase(cfg)).catch(() => _doInitFirebase(cfg));
-      } else {
-        _doInitFirebase(cfg);
-      }
-    } catch(e) {
-      setSyncIndicator('error');
-      _showSyncError('Firebase init error: '+e.message);
-      addLog('Sync error: '+e.message, 'danger');
-    }
-  });
-}
-
-function _doInitFirebase(cfg) {
-  try {
-    firebase.initializeApp({
-      apiKey:     cfg.apiKey,
-      projectId:  cfg.projectId,
-      authDomain: cfg.projectId + '.firebaseapp.com',
-    });
-    _db = firebase.firestore();
-    _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
-    setSyncIndicator('connecting');
-    _showSyncError('');
-
-    // Sign in anonymously so Firestore auth rules are satisfied
-    firebase.auth().signInAnonymously()
-      .then(() => {
-        addLog('Firebase anonymous auth successful');
-        startRealtimeSync();
-      })
-      .catch(err => {
-        // If anonymous auth fails, try without auth (open rules)
-        addLog('Anonymous auth failed — trying without auth: '+err.message, 'warn');
-        startRealtimeSync();
-      });
-
-  } catch(e) {
-    setSyncIndicator('error');
-    _showSyncError('Connection error: '+e.message+'. Check your API Key and Project ID.');
-    addLog('Sync error: '+e.message, 'danger');
-  }
+  if (txt) txt.textContent = status==='synced'?'✓ Synced with Google Sheets':status==='connecting'?'Syncing…':status==='error'?'✗ Sync error — check connection':'○ Offline';
 }
 
 function _showSyncError(msg) {
@@ -1351,167 +1246,122 @@ function _showSyncError(msg) {
   el.textContent   = msg;
 }
 
-function childCollection() {
+function getScriptUrl() {
   const cfg = getSyncConfig();
-  if (!_db || !cfg) return null;
-  return _db.collection('workspaces').doc(cfg.workspaceId).collection('children');
+  return cfg && cfg.scriptUrl ? cfg.scriptUrl : null;
 }
 
-function startRealtimeSync() {
-  if (_syncUnsub) _syncUnsub();
-  const col = childCollection();
-  if (!col) return;
-  let initialLoad = true;
-  _syncUnsub = col.onSnapshot(snapshot => {
-    _showSyncError('');
-    save('epi-sync-last', new Date().toISOString());
-    const el = document.getElementById('sync-last-time');
-    if (el) el.textContent = niceDateTime(new Date().toISOString());
-
+// ── Pull all children from Google Sheet ────────
+async function pullFromSheets() {
+  const url = getScriptUrl();
+  if (!url) return;
+  setSyncIndicator('connecting');
+  try {
+    const res  = await fetch(url + '?action=get', { method:'GET' });
+    const rows = await res.json();
     let changed = false;
-    snapshot.docChanges().forEach(change => {
-      const remote = change.doc.data();
+    rows.forEach(remote => {
       if (!remote || !remote.id) return;
-      if (change.type === 'removed') {
-        // Remove child that was deleted on another device
-        const idx = children.findIndex(c => c.id === remote.id);
-        if (idx !== -1) { children.splice(idx, 1); changed = true; }
-        return;
+      // Parse doses if stored as string
+      if (remote.doses && typeof remote.doses === 'string') {
+        try { remote.doses = JSON.parse(remote.doses); } catch(e) { remote.doses = {}; }
       }
       const localIdx = children.findIndex(c => c.id === remote.id);
       if (localIdx === -1) {
         children.push(remote);
         changed = true;
       } else {
-        const local = children[localIdx];
-        const remoteTime = remote.lastModified || '0';
-        const localTime  = local.lastModified  || '0';
+        const localTime  = children[localIdx].lastModified || '0';
+        const remoteTime = remote.lastModified             || '0';
         if (remoteTime > localTime) {
           children[localIdx] = remote;
           changed = true;
         }
       }
     });
-
-    if (changed) {
-      saveChildren();
-      renderAll();
-    }
-
-    // On first connection: push all LOCAL children that Firestore doesn't have yet
-    if (initialLoad) {
-      initialLoad = false;
-      setSyncIndicator('synced');
-      _pushAllLocalChildren();
-    } else {
-      setSyncIndicator('synced');
-    }
-
-  }, err => {
-    const isPermission = err.code === 'permission-denied';
-    setSyncIndicator(navigator.onLine ? 'error' : 'offline');
-    const msg = isPermission
-      ? 'Permission denied — Firestore security rules are blocking access. Update rules in Firebase Console (see instructions in Security tab).'
-      : 'Sync error: ' + err.message;
-    _showSyncError(msg);
-    addLog('Sync error: '+err.message, 'danger');
-  });
-}
-
-// Push all local children that don't exist or are newer than what's in Firestore
-async function _pushAllLocalChildren() {
-  if (!isSyncEnabled() || !_db || !children.length) return;
-  setSyncIndicator('connecting');
-  let pushed = 0;
-  for (const child of children) {
-    try {
-      const c = Object.assign({}, child, {
-        lastModified: child.lastModified || new Date().toISOString()
-      });
-      Object.keys(c).forEach(k => { if (c[k] === undefined) c[k] = null; });
-      await childCollection().doc(c.id).set(c, { merge: true });
-      pushed++;
-    } catch(e) {
-      setSyncIndicator('error');
-      _showSyncError('Push error: '+e.message+'. Check Firestore security rules.');
-      return;
-    }
-  }
-  setSyncIndicator('synced');
-  if (pushed > 0) addLog('Initial sync: pushed '+pushed+' local record(s) to Firestore');
-  save('epi-sync-last', new Date().toISOString());
-  const el = document.getElementById('sync-last-time');
-  if (el) el.textContent = niceDateTime(new Date().toISOString());
-}
-
-async function pushChild(child) {
-  if (!isSyncEnabled() || !_db) return;
-  const col = childCollection();
-  if (!col) return;
-  const c = Object.assign({}, child, { lastModified: new Date().toISOString() });
-  Object.keys(c).forEach(k => { if (c[k] === undefined) c[k] = null; });
-  try {
-    setSyncIndicator('connecting');
-    await col.doc(c.id).set(c, { merge: true });
+    if (changed) { saveChildren(); renderAll(); }
     setSyncIndicator('synced');
     _showSyncError('');
     save('epi-sync-last', new Date().toISOString());
     const el = document.getElementById('sync-last-time');
     if (el) el.textContent = niceDateTime(new Date().toISOString());
   } catch(e) {
-    setSyncIndicator('error');
-    const msg = e.code === 'permission-denied'
-      ? 'Permission denied — update Firestore security rules in Firebase Console.'
-      : 'Sync push error: '+e.message;
-    _showSyncError(msg);
+    setSyncIndicator(navigator.onLine ? 'error' : 'offline');
+    _showSyncError('Could not reach Google Sheets: '+e.message);
   }
 }
 
-async function deleteChildFromSync(childId) {
-  if (!isSyncEnabled() || !_db) return;
-  const col = childCollection();
-  if (!col) return;
-  try { await col.doc(childId).delete(); } catch(e) {}
+// ── Push one child to Google Sheet ─────────────
+async function pushChild(child) {
+  const url = getScriptUrl();
+  if (!url || !isSyncEnabled()) return;
+  const c = Object.assign({}, child, { lastModified: new Date().toISOString() });
+  // Serialize doses as JSON string for Sheets
+  c.doses = JSON.stringify(c.doses || {});
+  setSyncIndicator('connecting');
+  try {
+    await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ action:'upsert', child: c })
+    });
+    setSyncIndicator('synced');
+    _showSyncError('');
+    save('epi-sync-last', new Date().toISOString());
+    const el = document.getElementById('sync-last-time');
+    if (el) el.textContent = niceDateTime(new Date().toISOString());
+  } catch(e) {
+    setSyncIndicator(navigator.onLine ? 'error' : 'offline');
+    _showSyncError('Push failed: '+e.message);
+  }
 }
 
+// ── Delete child from Google Sheet ─────────────
+async function deleteChildFromSync(childId) {
+  const url = getScriptUrl();
+  if (!url || !isSyncEnabled()) return;
+  try {
+    await fetch(url, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ action:'delete', child: { id: childId } })
+    });
+  } catch(e) {}
+}
+
+// ── Sync now — pull then push all local ────────
 async function syncNow() {
   if (!isSyncEnabled()) { showToast('Sync not configured'); return; }
-  if (!_db) { initSync(); showToast('Connecting…'); return; }
   setSyncIndicator('connecting');
-  showToast('Syncing all records…');
-  try {
-    for (const c of children) {
-      await pushChild(c);
-    }
-    setSyncIndicator('synced');
-    showToast('All records synced ✓');
-  } catch(e) {
-    setSyncIndicator('error');
-    showToast('Sync error — check connection');
+  showToast('Syncing with Google Sheets…');
+  await pullFromSheets();
+  // Push all local children to make sure sheet is complete
+  for (const child of children) {
+    await pushChild(child);
   }
+  setSyncIndicator('synced');
+  showToast('Sync complete ✓');
 }
 
-// Wrap saveChildren to also push to Firebase
-const _originalSaveChildren = saveChildren;
+// ── Init sync on app load ──────────────────────
+function initSync() {
+  if (!isSyncEnabled()) return;
+  setSyncIndicator('connecting');
+  pullFromSheets();
+}
+
 function saveChildren() {
   try { localStorage.setItem('epi-children', JSON.stringify(children)); } catch(e) {}
 }
-function saveAndSync(changedChild) {
-  saveChildren();
-  if (changedChild && isSyncEnabled() && _db) pushChild(changedChild);
-}
 
-// ── Sync UI ───────────────────────────────────
+// ── Sync UI functions ──────────────────────────
 function onSyncToggle() {
   const enabled = document.getElementById('sync-toggle').checked;
-  const cfg = getSyncConfig() || {};
   if (enabled) {
     document.getElementById('sync-config-fields').style.display = 'block';
     document.getElementById('sync-connected-info').style.display = 'none';
-    // Pre-fill if config exists
-    if (cfg.apiKey)      document.getElementById('sync-api-key').value     = cfg.apiKey;
-    if (cfg.projectId)   document.getElementById('sync-project-id').value  = cfg.projectId;
-    if (cfg.workspaceId) document.getElementById('sync-workspace').value   = cfg.workspaceId;
+    const cfg = getSyncConfig();
+    if (cfg && cfg.scriptUrl) document.getElementById('sync-script-url').value = cfg.scriptUrl;
   } else {
     document.getElementById('sync-config-fields').style.display = 'none';
     document.getElementById('sync-connected-info').style.display = 'none';
@@ -1520,39 +1370,28 @@ function onSyncToggle() {
 }
 
 function saveSyncConfig() {
-  const apiKey      = document.getElementById('sync-api-key').value.trim();
-  const projectId   = document.getElementById('sync-project-id').value.trim();
-  const workspaceId = document.getElementById('sync-workspace').value.trim().toUpperCase();
-  if (!apiKey || !projectId || !workspaceId) { showToast('All three fields are required'); return; }
-  const cfg = { enabled: true, apiKey, projectId, workspaceId };
-  saveSyncConfig2(cfg);
-  addLog('Sync configured — workspace: '+workspaceId);
-  document.getElementById('sync-config-fields').style.display = 'none';
-  document.getElementById('sync-connected-info').style.display = 'block';
-  document.getElementById('sync-workspace-display').textContent = workspaceId;
-  showToast('Sync configured — connecting and uploading records…');
-  if (_syncUnsub) { _syncUnsub(); _syncUnsub = null; }
-  _db = null;
-  // Force Firebase re-init by deleting existing app
-  if (typeof firebase !== 'undefined' && firebase.apps.length) {
-    firebase.apps[0].delete().catch(()=>{}).finally(()=>{ window._firebaseLoaded=false; initSync(); });
-  } else {
-    window._firebaseLoaded = false;
-    initSync();
+  const scriptUrl = document.getElementById('sync-script-url').value.trim();
+  if (!scriptUrl || !scriptUrl.startsWith('https://script.google.com')) {
+    showToast('Please enter a valid Google Apps Script URL');
+    return;
   }
+  saveSyncConfig2({ enabled: true, scriptUrl });
+  addLog('Google Sheets sync configured');
+  document.getElementById('sync-config-fields').style.display   = 'none';
+  document.getElementById('sync-connected-info').style.display  = 'block';
+  showToast('Sync configured — connecting…');
+  initSync();
   renderSyncUI();
 }
 
 function disconnectSync() {
   if (!confirm('Disconnect sync? All data remains on this device.')) return;
-  if (_syncUnsub) { _syncUnsub(); _syncUnsub = null; }
-  _db = null;
   saveSyncConfig2({ enabled: false });
   setSyncIndicator('disabled');
-  document.getElementById('sync-toggle').checked = false;
-  document.getElementById('sync-config-fields').style.display = 'none';
-  document.getElementById('sync-connected-info').style.display = 'none';
-  document.getElementById('sync-status-text').textContent = 'Not configured';
+  document.getElementById('sync-toggle').checked                = false;
+  document.getElementById('sync-config-fields').style.display   = 'none';
+  document.getElementById('sync-connected-info').style.display  = 'none';
+  document.getElementById('sync-status-text').textContent       = 'Not configured';
   addLog('Sync disconnected');
   showToast('Sync disconnected');
 }
@@ -1561,17 +1400,20 @@ function renderSyncUI() {
   const cfg = getSyncConfig();
   const tog = document.getElementById('sync-toggle');
   if (!tog) return;
-  if (cfg && cfg.enabled && cfg.apiKey) {
+  if (cfg && cfg.enabled && cfg.scriptUrl) {
     tog.checked = true;
-    document.getElementById('sync-config-fields').style.display = 'none';
+    document.getElementById('sync-config-fields').style.display  = 'none';
     document.getElementById('sync-connected-info').style.display = 'block';
-    document.getElementById('sync-workspace-display').textContent = cfg.workspaceId || '—';
     const last = load('epi-sync-last', null);
     document.getElementById('sync-last-time').textContent = last ? niceDateTime(last) : 'Never';
+    setSyncIndicator('synced');
   } else {
     tog.checked = false;
+    setSyncIndicator('disabled');
   }
 }
+
+
 
 
 let _statusChildId = null;
