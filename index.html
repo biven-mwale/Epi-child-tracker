@@ -22,7 +22,12 @@
       s1.onload = () => {
         const s2 = document.createElement('script');
         s2.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js';
-        s2.onload = () => { window._firebaseLoaded = true; cb(); };
+        s2.onload = () => {
+          const s3 = document.createElement('script');
+          s3.src = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js';
+          s3.onload = () => { window._firebaseLoaded = true; cb(); };
+          document.head.appendChild(s3);
+        };
         document.head.appendChild(s2);
       };
       document.head.appendChild(s1);
@@ -432,16 +437,16 @@
           <div id="sync-error-msg" style="display:none;background:var(--red-50);border:0.5px solid #F09595;border-radius:var(--radius-sm);padding:9px 11px;font-size:11px;color:var(--red-700);margin-bottom:10px;line-height:1.6"></div>
           <!-- Firestore rules instructions -->
           <div style="background:var(--amber-50);border:0.5px solid #EF9F27;border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:10px;font-size:11px;color:var(--amber-800);line-height:1.7">
-            <div style="font-weight:700;margin-bottom:4px"><i class="ti ti-shield" aria-hidden="true"></i> Fix Firestore security rules (required)</div>
+            <div style="font-weight:700;margin-bottom:4px"><i class="ti ti-shield" aria-hidden="true"></i> Firestore security rules</div>
             1. Go to <strong>console.firebase.google.com</strong><br>
             2. Open your project → <strong>Firestore Database → Rules</strong><br>
             3. Replace all rules with this and click <strong>Publish</strong>:<br>
             <div style="background:#1A1A18;color:#9FE1CB;padding:7px 9px;border-radius:5px;margin-top:5px;font-family:monospace;font-size:10px;line-height:1.6">
               rules_version = '2';<br>
               service cloud.firestore {<br>
-              &nbsp;&nbsp;match /databases/{db}/documents {<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;match /workspaces/{w}/children/{c} {<br>
-              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br>
+              &nbsp;&nbsp;match /databases/{database}/documents {<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;match /{document=**} {<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if request.auth != null;<br>
               &nbsp;&nbsp;&nbsp;&nbsp;}<br>
               &nbsp;&nbsp;}<br>
               }
@@ -1311,15 +1316,27 @@ function initSync() {
 function _doInitFirebase(cfg) {
   try {
     firebase.initializeApp({
-      apiKey:    cfg.apiKey,
-      projectId: cfg.projectId,
-      authDomain: cfg.projectId+'.firebaseapp.com',
+      apiKey:     cfg.apiKey,
+      projectId:  cfg.projectId,
+      authDomain: cfg.projectId + '.firebaseapp.com',
     });
     _db = firebase.firestore();
     _db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
     setSyncIndicator('connecting');
     _showSyncError('');
-    startRealtimeSync();
+
+    // Sign in anonymously so Firestore auth rules are satisfied
+    firebase.auth().signInAnonymously()
+      .then(() => {
+        addLog('Firebase anonymous auth successful');
+        startRealtimeSync();
+      })
+      .catch(err => {
+        // If anonymous auth fails, try without auth (open rules)
+        addLog('Anonymous auth failed — trying without auth: '+err.message, 'warn');
+        startRealtimeSync();
+      });
+
   } catch(e) {
     setSyncIndicator('error');
     _showSyncError('Connection error: '+e.message+'. Check your API Key and Project ID.');
